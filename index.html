@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Off-Ice — Jump Training</title>
+<meta name="theme-color" content="#0B1020">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- themes ---------- */
+:root{
+  --bg:#0B1020; --surface:#141B33; --surface2:#1C2544; --line:#2A3455;
+  --ink:#EAF0FF; --muted:#8FA0C8; --accent:#FFB454; --accent-ink:#2A1B00; --edge:#5FE3D0;
+}
+[data-theme="sunrise"]{
+  --bg:#FFF6F0; --surface:#FFFFFF; --surface2:#FFEDE4; --line:#F2DCD0;
+  --ink:#2B1F2E; --muted:#7A6A78; --accent:#F2668B; --accent-ink:#FFFFFF; --edge:#FF9E5E;
+}
+[data-theme="cotton"]{
+  --bg:#FBF2FF; --surface:#FFFFFF; --surface2:#F3E6FF; --line:#E7D6F7;
+  --ink:#33224A; --muted:#7C6A96; --accent:#B15CE8; --accent-ink:#FFFFFF; --edge:#56C9E8;
+}
+[data-theme="emerald"]{
+  --bg:#071614; --surface:#0F2724; --surface2:#16332F; --line:#22453F;
+  --ink:#E6FFF8; --muted:#83B3A8; --accent:#F5D36B; --accent-ink:#1E1800; --edge:#3FD9A0;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:Figtree,"Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:16px; line-height:1.5;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom));
+}
+h1,h2,h3{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;font-weight:800;line-height:1.1;margin:0}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--edge);outline-offset:2px;border-radius:6px}
+input,textarea{font:inherit;color:inherit}
+
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 8px}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px}
+.top h1{font-size:26px;letter-spacing:-.02em}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* ---------- cards ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.card h2{font-size:19px;margin-bottom:6px}
+.sub{color:var(--muted);font-size:14px}
+
+/* ---------- rotation meter ---------- */
+.meter{display:flex;align-items:center;gap:20px}
+.dial{position:relative;flex:0 0 132px;width:132px;height:132px}
+.dial svg{transform:rotate(-90deg);display:block}
+.dial .track{stroke:var(--line)}
+.dial .fill{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .7s cubic-bezier(.3,1,.4,1)}
+.dial .cap{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.dial .cap b{font-family:"Bricolage Grotesque",sans-serif;font-size:30px;display:block;line-height:1}
+.dial .cap span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.landed .fill{stroke:var(--edge)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--accent);color:var(--accent-ink);font-weight:600;
+  padding:13px 20px;border-radius:12px;min-height:48px}
+.btn:active{transform:translateY(1px)}
+.btn.wide{width:100%}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.quiet{background:var(--surface2);color:var(--ink)}
+.btn.sm{padding:9px 14px;min-height:40px;font-size:14px;border-radius:10px}
+
+/* ---------- toggle row ---------- */
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .lbl{font-weight:600}
+.switch{flex:0 0 54px;height:31px;border-radius:99px;background:var(--surface2);border:1px solid var(--line);position:relative;transition:background .2s}
+.switch i{position:absolute;top:2px;left:2px;width:25px;height:25px;border-radius:99px;background:var(--muted);transition:transform .2s,background .2s}
+.switch[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.switch[aria-checked="true"] i{transform:translateX(23px);background:var(--accent-ink)}
+
+/* ---------- exercise wizard ---------- */
+.stepbar{display:flex;gap:4px;margin-bottom:16px}
+.stepbar span{flex:1;height:4px;border-radius:99px;background:var(--line)}
+.stepbar span.done{background:var(--edge)}
+.stepbar span.now{background:var(--accent)}
+
+.exname{font-size:24px;letter-spacing:-.02em;margin-bottom:4px}
+.why{color:var(--muted);font-size:14px;margin:0 0 16px}
+.how{margin:0 0 14px;padding-left:18px}
+.how li{margin-bottom:6px}
+.tips{background:var(--surface2);border-radius:12px;padding:12px 14px;font-size:14px}
+.tips p{margin:0 0 6px;color:var(--muted)}
+.tips ul{margin:0;padding-left:16px}
+.tips li{margin-bottom:4px}
+
+.target{display:flex;align-items:baseline;gap:8px;margin:18px 0 10px}
+.target b{font-family:"JetBrains Mono",monospace;font-size:22px;color:var(--accent)}
+.target span{font-size:13px;color:var(--muted)}
+
+.sets{display:flex;flex-direction:column;gap:8px}
+.set{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid transparent;border-radius:12px;padding:10px 12px}
+.set.on{border-color:var(--edge)}
+.set .n{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);width:44px;flex:0 0 44px}
+.set input{width:64px;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px;text-align:center;
+  font-family:"JetBrains Mono",monospace;font-weight:700}
+.set .unit{font-size:13px;color:var(--muted);flex:1}
+.set .tick{width:40px;height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--line);display:grid;place-content:center;font-size:17px}
+.set.on .tick{background:var(--edge);color:var(--bg);border-color:var(--edge)}
+
+/* ---------- timer ---------- */
+.timer{text-align:center;background:var(--surface2);border-radius:14px;padding:18px;margin:14px 0}
+.timer .clock{font-family:"JetBrains Mono",monospace;font-size:46px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.timer .clock.go{color:var(--accent)}
+.timer .ctl{display:flex;gap:8px;justify-content:center;margin-top:12px}
+
+.nav2{display:flex;gap:10px;margin-top:18px}
+.nav2 .btn{flex:1}
+
+/* ---------- program list ---------- */
+.phase-h{display:flex;align-items:center;gap:10px;margin:22px 0 10px}
+.phase-h h2{font-size:17px}
+.pill{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+  padding:4px 9px;border-radius:99px;background:var(--surface2);color:var(--muted)}
+.pill.live{background:var(--accent);color:var(--accent-ink)}
+.exrow{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.exrow b{font-weight:600}
+.exrow .t{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--accent);white-space:nowrap}
+
+/* ---------- history ---------- */
+.hist{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.hist .d{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);flex:0 0 58px;padding-top:2px}
+.hist .b{flex:1;font-size:14px}
+.hist .feel{font-size:18px;flex:0 0 auto}
+.flagged{color:var(--accent);font-weight:600;font-size:13px}
+
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.badge{background:var(--surface2);border-radius:13px;padding:12px 8px;text-align:center;opacity:.32}
+.badge.got{opacity:1;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--accent)}
+.badge .ic{font-size:22px}
+.badge .nm{font-size:11px;font-weight:600;margin-top:4px;line-height:1.25}
+
+.check{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line);width:100%;text-align:left}
+.check .box{flex:0 0 24px;width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:var(--surface2);display:grid;place-content:center;font-size:14px;margin-top:1px}
+.check.on .box{background:var(--edge);border-color:var(--edge);color:var(--bg)}
+.check .tx{font-size:14px}
+
+/* ---------- feel picker ---------- */
+.feels{display:flex;gap:8px}
+.feels button{flex:1;background:var(--surface2);border:1px solid transparent;border-radius:12px;padding:12px 6px;text-align:center}
+.feels button.on{border-color:var(--accent)}
+.feels .e{font-size:22px;display:block}
+.feels .l{font-size:12px;color:var(--muted);margin-top:3px}
+textarea{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:84px;resize:vertical;margin-top:10px}
+
+.notice{background:var(--surface2);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;font-size:14px;margin-top:12px}
+
+/* ---------- bottom nav ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:20}
+nav button{flex:1;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11px;font-weight:600}
+nav button .ic{font-size:19px}
+nav button[aria-current="true"]{color:var(--accent)}
+
+.hide{display:none !important}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+@media (min-width:720px){
+  .wrap{padding-top:32px}
+  .top h1{font-size:32px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="eyebrow" id="eyebrow">Off-ice</div>
+      <h1 id="title">Today</h1>
+    </div>
+    <div class="eyebrow mono" id="phaseTag"></div>
+  </div>
+  <main id="view"></main>
+</div>
+
+<nav>
+  <button data-go="today" aria-current="true"><span class="ic">⛸</span>Today</button>
+  <button data-go="program"><span class="ic">☰</span>Program</button>
+  <button data-go="progress"><span class="ic">◍</span>Progress</button>
+  <button data-go="settings"><span class="ic">⚙</span>Settings</button>
+</nav>
+
+<script>
+"use strict";
+
+/* ============ PROGRAM DATA ============ */
+const EX = {
+  warmup:{name:"Warm-up",phase:1,mode:"hold",sets:1,base:180,step:0,max:180,perSide:false,
+    why:"Gets blood into the legs so nothing is cold when the real work starts.",
+    how:["March in place, lifting knees, for about a minute.","Arm circles: 10 forward, 10 back.","6 slow walking lunges on each leg.","Roll each ankle 10 times in both directions."],
+    tips:["Easy pace. This is not the workout.","If you just came off the ice you can shorten this."]},
+
+  tib:{name:"Tibialis raises",phase:1,mode:"reps",sets:3,base:15,step:2,max:30,perSide:true,
+    why:"Builds the muscle down the front of your shin. It controls your ankle when you set the toe pick and when you land.",
+    how:["Sit on a chair with both feet flat on the floor.","Keeping your heel down, pull your toes up toward your shin as far as they go.","Hold the top for 2 seconds.","Lower slowly, over about 3 seconds."],
+    tips:["Slow on the way down is where the strength comes from.","Burning in the shin is the point. Sharp pain is not.","To make it harder, rest a shoe or small bottle across your toes."]},
+
+  calfStraight:{name:"Calf raises, straight leg",phase:1,mode:"reps",sets:3,base:10,step:2,max:25,perSide:true,
+    why:"The upper calf is what pushes you off the ice. Single leg, because that is how you jump.",
+    how:["Stand near a wall or barre, fingertips touching for balance only.","Lift one foot slightly off the floor.","Rise onto the toes of the standing foot over 2 seconds.","Hold the top for 1 second, lower over 2 seconds."],
+    tips:["Fingertips are for balance, not for lifting you.","Keep the ankle straight. No rolling in or out.","Full height every rep. Half reps do half the work."]},
+
+  calfBent:{name:"Calf raises, bent knee",phase:1,mode:"reps",sets:3,base:12,step:2,max:25,perSide:true,
+    why:"Reaches the deeper calf muscle underneath. This is the one that absorbs landings.",
+    how:["Sit with your knee bent at about 90 degrees, foot flat.","Press through the ball of your foot to lift your heel.","Hold at the top, then lower under control."],
+    tips:["It should feel different and deeper than the straight-leg version.","Add weight by resting something on your thigh, close to the knee."]},
+
+  bridge:{name:"Single-leg glute bridge",phase:1,mode:"reps",sets:3,base:10,step:2,max:20,perSide:true,
+    why:"Wakes up the glutes. Jump height comes from the hips as much as the ankles.",
+    how:["Lie on your back, knees bent, feet flat.","Lift one foot a few inches off the floor.","Push through the heel of the grounded foot and lift your hips.","Squeeze at the top, lower slowly."],
+    tips:["Keep your hips level. Don't let one side drop.","Squeeze the glute, don't arch your lower back."]},
+
+  wallsit:{name:"Wall sit",phase:1,mode:"hold",sets:3,base:25,step:5,max:60,perSide:false,
+    why:"Builds the quad strength that absorbs a landing instead of collapsing into it.",
+    how:["Stand with your back flat against a wall, feet about two steps out.","Slide down until your knees are bent near 90 degrees.","Hold. Keep your whole back on the wall."],
+    tips:["Knees point over your toes, not caved inward.","Keep breathing. Don't hold your breath.","If your knees complain, slide less deep."]},
+
+  split:{name:"ATG split squat",phase:2,mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
+    why:"Loads one leg deeply through a full range. This is the shape your leg makes right before a jump.",
+    how:["Stand in a split stance, one foot well forward.","Bend the front knee and lower until the back knee is near the floor.","Let the front knee travel forward over the toes.","Push through the front foot to stand."],
+    tips:["Go only as deep as you can control today. Depth builds over weeks.","Back heel comes up, that's fine.","Chest stays tall."]},
+
+  backwalk:{name:"Backward walks",phase:2,mode:"reps",sets:3,base:12,step:2,max:24,perSide:false,
+    why:"Loads the front of the shin and knee the way nothing else does. This is the backbone of the whole method.",
+    how:["Find a clear stretch of floor or hallway.","Walk backward with deliberate, controlled steps.","Land on the ball of the foot and roll back.","Count steps, not distance."],
+    tips:["Lean slightly forward from the ankles, not the waist.","Slow beats fast here.","Uphill outside, or dragging something light, makes it harder."]},
+
+  minijump:{name:"Mini jumps",phase:2,mode:"reps",sets:3,base:6,step:1,max:12,jump:true,perSide:false,
+    why:"Trains explosive push-off and, more importantly, a quiet controlled landing.",
+    how:["Stand with feet hip-width, small bend in the knees.","Jump straight up.","Land softly, absorb into a bend, and stop.","Pause a full second before the next one."],
+    tips:["This is not bouncing. Every rep starts from a stop.","Listen. Quiet landing means good landing.","If landings get loud or sloppy, the set is over."]},
+
+  balance:{name:"Single-leg balance with arms",phase:2,mode:"hold",sets:3,base:25,step:5,max:50,perSide:true,
+    why:"Trains the ankle to hold steady while your upper body moves. That is rotation control.",
+    how:["Stand on one leg, other knee lifted toward hip height.","Hold the position while your arms move through your jump pull-in.","Keep the standing ankle quiet."],
+    tips:["The standing foot should not be sliding around.","Eyes on a fixed point helps.","Harder version: do it on a pillow or folded towel."]},
+
+  hops:{name:"Forward hops",phase:3,mode:"reps",sets:3,base:8,step:1,max:14,jump:true,perSide:true,
+    why:"Single-leg spring, forward. Closest off-ice match to an axel takeoff.",
+    how:["Stand on one leg.","Hop forward a short distance.","Land on the same leg and hold the landing for a second.","Reset and repeat."],
+    tips:["Distance is not the goal. Sticking the landing is.","If you can't hold the landing, hop shorter."]},
+
+  rotate:{name:"Standing rotations",phase:3,mode:"reps",sets:3,base:10,step:2,max:20,perSide:true,
+    why:"Core control through rotation, on one leg, like every jump you do.",
+    how:["Stand on one leg, arms crossed over your chest.","Rotate your upper body toward one side, slow and controlled.","Return to center. Keep the hips facing forward."],
+    tips:["Hips stay square. Only the upper body turns.","Slow. This is control work, not speed work."]},
+
+  lateral:{name:"Lateral lunges",phase:3,mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
+    why:"Builds sideways strength for the landings that don't come down perfectly on-axis.",
+    how:["Step wide to one side.","Bend that knee and sit back into the hip, keeping the other leg straight.","Push back to standing."],
+    tips:["Toes point forward on both feet.","Chest up, weight into the heel of the bent leg."]},
+
+  stepdown:{name:"Controlled step-downs",phase:3,mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
+    why:"Teaches the leg to lower your whole bodyweight slowly. That is exactly what a landing is.",
+    how:["Stand on a low step, about 4 to 6 inches.","Standing on one leg, lower the other foot slowly toward the floor.","Tap the floor lightly, then press back up."],
+    tips:["Take 3 seconds on the way down.","A loud tap means you dropped. Go slower or use a lower step.","Keep the standing knee tracking over the toes."]},
+
+  cooldown:{name:"Cool-down",phase:1,mode:"hold",sets:1,base:120,step:0,max:120,perSide:false,
+    why:"Lets everything settle so tomorrow's skating doesn't start stiff.",
+    how:["Quad stretch, 20 seconds each leg.","Calf stretch against a wall, 20 seconds each leg.","Hip flexor stretch in a half-kneel, 20 seconds each side.","Walk easy for a minute."],
+    tips:["Stretch to gentle tension, never to pain."]}
+};
+
+const PHASES = [
+  {n:1,name:"Foundation",weeks:"Weeks 1–3",
+   blurb:"Ankles, calves, glutes, quads. Nothing explosive yet. This is the base everything else sits on.",
+   plan:["warmup","tib","calfStraight","calfBent","bridge","wallsit","cooldown"]},
+  {n:2,name:"Power",weeks:"Weeks 4–6",
+   blurb:"The foundation work stays, and explosive movement gets added on top of it.",
+   plan:["warmup","tib","calfStraight","split","backwalk","minijump","balance","cooldown"]},
+  {n:3,name:"Jump-specific",weeks:"Weeks 7+",
+   blurb:"Single-leg spring, rotation control, and landing mechanics for each jump type.",
+   plan:["warmup","calfStraight","split","hops","rotate","lateral","stepdown","balance","cooldown"]}
+];
+
+const CHECKLIST = [
+  {id:"c1",t:"20 single-leg calf raises on each leg, full height"},
+  {id:"c2",t:"45-second wall sit without sliding down"},
+  {id:"c3",t:"10 split squats each leg with the knee tracking over the toes"},
+  {id:"c4",t:"10 mini jumps in a row with quiet landings"},
+  {id:"c5",t:"40-second single-leg balance, ankle steady"},
+  {id:"c6",t:"8 step-downs each leg, 3 seconds down, no drop"},
+  {id:"c7",t:"No ankle or knee pain during any of it"}
+];
+
+const BADGES = [
+  {id:"first",ic:"⛸",nm:"First session",test:s=>s.sessions.length>=1},
+  {id:"s10",ic:"◈",nm:"10 sessions",test:s=>s.sessions.length>=10},
+  {id:"s25",ic:"◆",nm:"25 sessions",test:s=>s.sessions.length>=25},
+  {id:"s50",ic:"✦",nm:"50 sessions",test:s=>s.sessions.length>=50},
+  {id:"w1",ic:"↻",nm:"Week landed",test:s=>weeksLanded(s)>=1},
+  {id:"w4",ic:"↻↻",nm:"4 weeks landed",test:s=>weeksLanded(s)>=4},
+  {id:"w12",ic:"❄",nm:"12 weeks landed",test:s=>weeksLanded(s)>=12},
+  {id:"p2",ic:"②",nm:"Phase 2",test:s=>s.phase>=2},
+  {id:"p3",ic:"③",nm:"Phase 3",test:s=>s.phase>=3},
+  {id:"ready",ic:"★",nm:"Jump ready",test:s=>CHECKLIST.every(c=>s.checklist[c.id])}
+];
+
+const THEMES=[["midnight","Midnight Rink"],["sunrise","Sunrise Session"],["cotton","Cotton Candy"],["emerald","Emerald Edge"]];
+
+/* ============ STATE ============ */
+const KEY="office-jump-v1";
+let S = load();
+let view = "today";
+let step = 0;
+let timer = {id:null,left:0,total:0,running:false};
+
+function blank(){
+  return {v:1,theme:"midnight",weeklyGoal:3,phase:1,sessions:[],targets:{},checklist:{},badges:[],active:null};
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return blank();
+    return Object.assign(blank(), JSON.parse(raw));
+  }catch(e){ return blank(); }
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch(e){ /* storage unavailable — app still works for this visit */ }
+}
+
+/* ============ HELPERS ============ */
+function targetFor(id){
+  const e = EX[id];
+  return S.targets[id] != null ? S.targets[id] : e.base;
+}
+function setsFor(id, heavy){
+  const e = EX[id];
+  if(id==="warmup"||id==="cooldown") return 1;
+  let n = e.sets;
+  if(heavy) n = Math.max(2, n-1);
+  return n;
+}
+function planFor(phase, heavy){
+  const p = PHASES[phase-1].plan;
+  return heavy ? p.filter(id=>!EX[id].jump) : p.slice();
+}
+function mondayOf(d){
+  const x = new Date(d); x.setHours(0,0,0,0);
+  const day = (x.getDay()+6)%7;
+  x.setDate(x.getDate()-day);
+  return x.getTime();
+}
+function weekKey(ts){ return mondayOf(new Date(ts)); }
+function sessionsThisWeek(){
+  const wk = mondayOf(new Date());
+  return S.sessions.filter(s=>weekKey(s.date)===wk).length;
+}
+function weeksLanded(s){
+  const m = {};
+  s.sessions.forEach(x=>{ const k=weekKey(x.date); m[k]=(m[k]||0)+1; });
+  return Object.values(m).filter(n=>n>=s.weeklyGoal).length;
+}
+function phaseSessionCount(p){ return S.sessions.filter(s=>s.phase===p).length; }
+function fmtClock(sec){
+  const m=Math.floor(sec/60), s=sec%60;
+  return m+":"+String(s).padStart(2,"0");
+}
+function fmtDate(ts){
+  const d=new Date(ts);
+  return (d.getMonth()+1)+"/"+d.getDate();
+}
+function esc(t){ return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* adaptive targets: bump when a session was completed cleanly and didn't feel tough */
+function adapt(session){
+  session.exercises.forEach(rec=>{
+    const e = EX[rec.id];
+    if(!e || e.step===0) return;
+    const done = rec.sets.filter(v=>v!=null);
+    if(!done.length) return;
+    const cur = targetFor(rec.id);
+    const allFull = done.length >= setsFor(rec.id,false) && done.every(v=>v>=cur);
+    let next = cur;
+    if(allFull && session.feel!=="tough" && !session.hurt) next = Math.min(e.max, cur + e.step);
+    else if(session.feel==="tough" || done.some(v=>v < cur*0.7)) next = Math.max(e.base, cur - e.step);
+    S.targets[rec.id] = next;
+  });
+}
+function awardBadges(){
+  BADGES.forEach(b=>{ if(!S.badges.includes(b.id) && b.test(S)) S.badges.push(b.id); });
+}
+
+/* ============ AUDIO / HAPTIC ============ */
+let actx=null;
+function beep(freq=880,ms=180){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.connect(g); g.connect(actx.destination);
+    o.frequency.value=freq; o.type="sine";
+    g.gain.setValueAtTime(.0001,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.25,actx.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+ms/1000);
+    o.start(); o.stop(actx.currentTime+ms/1000+.02);
+  }catch(e){}
+}
+function buzz(pattern){ try{ navigator.vibrate && navigator.vibrate(pattern); }catch(e){} }
+
+/* ============ TIMER ============ */
+function stopTimer(){
+  if(timer.id) clearInterval(timer.id);
+  timer.id=null; timer.running=false;
+}
+function startTimer(secs, onDone){
+  stopTimer();
+  timer.total=secs; timer.left=secs; timer.running=true; timer.onDone=onDone;
+  paintClock();
+  timer.id = setInterval(()=>{
+    timer.left--;
+    if(timer.left<=3 && timer.left>0) beep(660,90);
+    if(timer.left<=0){
+      stopTimer();
+      beep(1046,420); buzz([120,80,120]);
+      paintClock();
+      onDone && onDone();
+      return;
+    }
+    paintClock();
+  },1000);
+}
+function paintClock(){
+  const el=document.getElementById("clock");
+  if(!el) return;
+  el.textContent = fmtClock(Math.max(0,timer.left));
+  el.classList.toggle("go", timer.running);
+  const b=document.getElementById("tBtn");
+  if(b) b.textContent = timer.running ? "Pause" : (timer.left>0 && timer.left<timer.total ? "Resume" : "Start");
+}
+
+/* ============ RENDER ============ */
+const view$ = ()=>document.getElementById("view");
+
+function render(){
+  document.documentElement.setAttribute("data-theme", S.theme);
+  document.getElementById("phaseTag").textContent = "Phase "+S.phase;
+  const titles = {today:"Today",program:"Program",progress:"Progress",settings:"Settings"};
+  document.getElementById("title").textContent = S.active ? "Session" : titles[view];
+  document.getElementById("eyebrow").textContent = S.active ? PHASES[S.active.phase-1].name : "Off-ice";
+  document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-current", String(b.dataset.go===view)));
+  if(S.active && view==="today") return renderSession();
+  ({today:renderToday,program:renderProgram,progress:renderProgress,settings:renderSettings}[view])();
+  window.scrollTo(0,0);
+}
+
+/* ---- TODAY ---- */
+function renderToday(){
+  const done = sessionsThisWeek(), goal = S.weeklyGoal;
+  const pct = Math.min(1, done/goal);
+  const R=58, C=2*Math.PI*R;
+  const landed = done>=goal;
+  const ph = PHASES[S.phase-1];
+  const canAdvance = S.phase<3 && phaseSessionCount(S.phase)>=9;
+
+  view$().innerHTML = `
+  <div class="card">
+    <div class="meter">
+      <div class="dial ${landed?"landed":""}">
+        <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden="true">
+          <circle class="track" cx="66" cy="66" r="${R}" fill="none" stroke-width="9"/>
+          <circle class="fill" cx="66" cy="66" r="${R}" fill="none" stroke-width="9"
+            stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct)}"/>
+        </svg>
+        <div class="cap"><b>${done}<span style="font-size:16px;color:var(--muted)">/${goal}</span></b><span>this week</span></div>
+      </div>
+      <div style="flex:1">
+        <h2>${landed?"Week landed":"Rotation in progress"}</h2>
+        <p class="sub" style="margin:6px 0 0">${landed
+          ? "Goal met. Anything else this week is a bonus."
+          : `${goal-done} more ${goal-done===1?"session":"sessions"} to close the loop. Resets Monday.`}</p>
+        <p class="sub" style="margin:8px 0 0">Rest days count as training. Don't chase this every day.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>${ph.name}</h2>
+    <p class="sub" style="margin:6px 0 14px">${ph.weeks} · ${ph.blurb}</p>
+    <div class="row">
+      <div>
+        <div class="lbl">Heavy ice week</div>
+        <div class="sub">Trims a set from each exercise and skips the jumping.</div>
+      </div>
+      <button class="switch" id="heavy" role="switch" aria-checked="false" aria-label="Heavy ice week"><i></i></button>
+    </div>
+    <button class="btn wide" id="start" style="margin-top:16px">Start today's session</button>
+  </div>
+
+  ${canAdvance?`<div class="card">
+    <h2>Ready for Phase ${S.phase+1}?</h2>
+    <p class="sub" style="margin:6px 0 14px">You've logged ${phaseSessionCount(S.phase)} sessions in Phase ${S.phase}. Move up only if the current work feels controlled, not just survivable.</p>
+    <button class="btn quiet wide" id="advance">Move to Phase ${S.phase+1}</button>
+  </div>`:""}
+
+  ${S.sessions.length?`<div class="card">
+    <h2>Last session</h2>
+    ${histRow(S.sessions[S.sessions.length-1])}
+  </div>`:`<div class="card">
+    <h2>How this works</h2>
+    <p class="sub" style="margin:6px 0 0">You'll go through one exercise at a time. Each one tells you what it's for and how to do it. Log your sets as you go, and the targets adjust themselves based on how the last few sessions went.</p>
+  </div>`}`;
+
+  let heavy=false;
+  const hb=document.getElementById("heavy");
+  hb.onclick=()=>{ heavy=!heavy; hb.setAttribute("aria-checked",String(heavy)); };
+  document.getElementById("start").onclick=()=>{
+    const plan = planFor(S.phase, heavy);
+    S.active = {date:Date.now(),phase:S.phase,heavy,exercises:plan.map(id=>({id,sets:[]}))};
+    step=0; save(); render();
+  };
+  const ad=document.getElementById("advance");
+  if(ad) ad.onclick=()=>{ S.phase++; awardBadges(); save(); render(); };
+}
+
+/* ---- SESSION WIZARD ---- */
+function renderSession(){
+  const A=S.active;
+  const total=A.exercises.length;
+  if(step>=total) return renderFinish();
+
+  const rec=A.exercises[step];
+  const e=EX[rec.id];
+  const nSets=setsFor(rec.id,A.heavy);
+  const tgt=targetFor(rec.id);
+  const isHold=e.mode==="hold";
+
+  view$().innerHTML=`
+  <div class="stepbar">${A.exercises.map((_,i)=>`<span class="${i<step?"done":i===step?"now":""}"></span>`).join("")}</div>
+  <div class="card">
+    <h2 class="exname">${e.name}</h2>
+    <p class="why">${e.why}</p>
+    <ol class="how">${e.how.map(h=>`<li>${h}</li>`).join("")}</ol>
+    <div class="tips"><p>Form notes</p><ul>${e.tips.map(t=>`<li>${t}</li>`).join("")}</ul></div>
+
+    <div class="target">
+      <b>${isHold?fmtClock(tgt):tgt}</b>
+      <span>${isHold?"per hold":"reps"}${e.perSide?" · each side":""} · ${nSets} ${nSets===1?"set":"sets"}</span>
+    </div>
+
+    ${isHold?`<div class="timer">
+      <div class="clock" id="clock">${fmtClock(tgt)}</div>
+      <div class="ctl">
+        <button class="btn sm" id="tBtn">Start</button>
+        <button class="btn sm ghost" id="tReset">Reset</button>
+      </div>
+    </div>`:""}
+
+    <div class="sets">${Array.from({length:nSets},(_,i)=>setRow(rec,i,tgt,isHold,e.perSide)).join("")}</div>
+
+    ${rec.id==="warmup"||rec.id==="cooldown"?"":`
+    <div class="timer" style="margin-top:14px">
+      <div class="sub" style="margin-bottom:8px">Rest between sets</div>
+      <button class="btn sm quiet" id="rest">Rest 60s</button>
+    </div>`}
+  </div>
+
+  <div class="nav2">
+    <button class="btn ghost" id="back">${step===0?"Quit":"Back"}</button>
+    <button class="btn" id="next">${step===total-1?"Finish up":"Next"}</button>
+  </div>`;
+
+  // set rows
+  view$().querySelectorAll("[data-set]").forEach(btn=>{
+    btn.onclick=()=>{
+      const i=+btn.dataset.set;
+      const inp=document.getElementById("v"+i);
+      if(rec.sets[i]!=null){ rec.sets[i]=null; }
+      else { rec.sets[i]= inp? (+inp.value||tgt) : tgt; }
+      save(); renderSession();
+    };
+  });
+
+  if(isHold){
+    const reset=()=>{ stopTimer(); timer.left=tgt; timer.total=tgt; paintClock(); };
+    reset();
+    document.getElementById("tBtn").onclick=()=>{
+      if(timer.running){ stopTimer(); paintClock(); return; }
+      const from = (timer.left>0 && timer.left<timer.total) ? timer.left : tgt;
+      timer.total = tgt;
+      startTimer(from, ()=>{
+        const i=rec.sets.findIndex(v=>v==null);
+        const idx = i>=0 ? i : rec.sets.length;
+        if(idx<nSets){ rec.sets[idx]=tgt; save(); renderSession(); }
+      });
+    };
+    document.getElementById("tReset").onclick=reset;
+  }
+  const rb=document.getElementById("rest");
+  if(rb) rb.onclick=()=>{ rb.disabled=true; startTimer(60,()=>{ rb.disabled=false; rb.textContent="Rest 60s"; });
+    const t=setInterval(()=>{ if(!timer.running){clearInterval(t); return;} rb.textContent="Rest "+fmtClock(timer.left); },250); };
+
+  document.getElementById("back").onclick=()=>{
+    stopTimer();
+    if(step===0){
+      if(confirm("Quit this session? Nothing will be saved.")){ S.active=null; save(); render(); }
+      return;
+    }
+    step--; renderSession(); window.scrollTo(0,0);
+  };
+  document.getElementById("next").onclick=()=>{ stopTimer(); step++; renderSession(); window.scrollTo(0,0); };
+}
+
+function setRow(rec,i,tgt,isHold,perSide){
+  const on = rec.sets[i]!=null;
+  const val = on ? rec.sets[i] : tgt;
+  return `<div class="set ${on?"on":""}">
+    <div class="n">Set ${i+1}</div>
+    ${isHold
+      ? `<div class="unit mono">${fmtClock(val)}${perSide?" each side":""}</div>`
+      : `<input id="v${i}" type="number" inputmode="numeric" min="0" value="${val}" ${on?"disabled":""} aria-label="Reps for set ${i+1}">
+         <div class="unit">reps${perSide?" each side":""}</div>`}
+    <button class="tick" data-set="${i}" aria-label="${on?"Undo":"Log"} set ${i+1}">${on?"✓":"+"}</button>
+  </div>`;
+}
+
+/* ---- FINISH ---- */
+let draft={feel:null,notes:"",hurt:false};
+function renderFinish(){
+  const A=S.active;
+  const logged=A.exercises.reduce((n,r)=>n+r.sets.filter(v=>v!=null).length,0);
+  view$().innerHTML=`
+  <div class="card">
+    <h2>Session done</h2>
+    <p class="sub" style="margin:6px 0 0">${logged} ${logged===1?"set":"sets"} logged${A.heavy?" · heavy ice week":""}.</p>
+  </div>
+  <div class="card">
+    <h2>How did it feel?</h2>
+    <div class="feels" style="margin-top:12px">
+      ${[["easy","😌","Easy"],["good","🙂","Just right"],["tough","😮‍💨","Tough"]].map(([k,e,l])=>
+        `<button data-feel="${k}" class="${draft.feel===k?"on":""}"><span class="e">${e}</span><span class="l">${l}</span></button>`).join("")}
+    </div>
+    <textarea id="notes" placeholder="Anything you want to remember? What felt strong, what was wobbly…">${esc(draft.notes)}</textarea>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <div class="lbl">Something hurt</div>
+        <div class="sub">Not muscle burn — actual pain.</div>
+      </div>
+      <button class="switch" id="hurt" role="switch" aria-checked="${draft.hurt}" aria-label="Something hurt"><i></i></button>
+    </div>
+    ${draft.hurt?`<div class="notice">Stop doing that exercise for now, and tell your parent or coach before your next session. This gets flagged in your history so it doesn't get forgotten.</div>`:""}
+    <button class="btn wide" id="save" style="margin-top:16px">Save session</button>
+    <button class="btn ghost wide" id="discard" style="margin-top:8px">Discard</button>
+  </div>`;
+
+  view$().querySelectorAll("[data-feel]").forEach(b=>b.onclick=()=>{ draft.feel=b.dataset.feel; renderFinish(); });
+  const h=document.getElementById("hurt");
+  h.onclick=()=>{ draft.notes=document.getElementById("notes").value; draft.hurt=!draft.hurt; renderFinish(); };
+  document.getElementById("save").onclick=()=>{
+    const A=S.active;
+    A.notes=document.getElementById("notes").value.trim();
+    A.feel=draft.feel||"good";
+    A.hurt=draft.hurt;
+    A.exercises=A.exercises.filter(r=>r.sets.some(v=>v!=null));
+    adapt(A);
+    S.sessions.push(A);
+    S.active=null;
+    awardBadges();
+    draft={feel:null,notes:"",hurt:false};
+    step=0; save(); render();
+  };
+  document.getElementById("discard").onclick=()=>{
+    if(confirm("Discard this session?")){ S.active=null; draft={feel:null,notes:"",hurt:false}; step=0; save(); render(); }
+  };
+}
+
+/* ---- PROGRAM ---- */
+function renderProgram(){
+  view$().innerHTML = PHASES.map(p=>`
+    <div class="phase-h">
+      <h2>${p.name}</h2>
+      <span class="pill ${p.n===S.phase?"live":""}">${p.n===S.phase?"Current":p.weeks}</span>
+    </div>
+    <p class="sub" style="margin:0 0 12px">${p.blurb}</p>
+    ${p.plan.filter(id=>id!=="warmup"&&id!=="cooldown").map(id=>{
+      const e=EX[id],t=targetFor(id);
+      return `<button class="exrow" data-ex="${id}">
+        <b>${e.name}</b>
+        <span class="t">${e.mode==="hold"?fmtClock(t):t+"×"+e.sets}</span>
+      </button>`;
+    }).join("")}
+  `).join("");
+  view$().querySelectorAll("[data-ex]").forEach(b=>b.onclick=()=>showEx(b.dataset.ex));
+}
+function showEx(id){
+  const e=EX[id];
+  view$().innerHTML=`
+  <button class="btn ghost sm" id="bk" style="margin-bottom:14px">← Program</button>
+  <div class="card">
+    <h2 class="exname">${e.name}</h2>
+    <p class="why">${e.why}</p>
+    <ol class="how">${e.how.map(h=>`<li>${h}</li>`).join("")}</ol>
+    <div class="tips"><p>Form notes</p><ul>${e.tips.map(t=>`<li>${t}</li>`).join("")}</ul></div>
+    <div class="target"><b>${e.mode==="hold"?fmtClock(targetFor(id)):targetFor(id)}</b>
+      <span>${e.mode==="hold"?"per hold":"reps"}${e.perSide?" · each side":""} · ${e.sets} sets · current target</span></div>
+  </div>`;
+  document.getElementById("bk").onclick=()=>renderProgram();
+  window.scrollTo(0,0);
+}
+
+/* ---- PROGRESS ---- */
+function renderProgress(){
+  const recent=S.sessions.slice(-20).reverse();
+  view$().innerHTML=`
+  <div class="card">
+    <h2>Badges</h2>
+    <div class="badges" style="margin-top:12px">
+      ${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"got":""}">
+        <div class="ic">${b.ic}</div><div class="nm">${b.nm}</div></div>`).join("")}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Jump readiness</h2>
+    <p class="sub" style="margin:6px 0 6px">Tick these off as they become true. All seven means you're strong enough for harder jump work.</p>
+    ${CHECKLIST.map(c=>`<button class="check ${S.checklist[c.id]?"on":""}" data-ck="${c.id}">
+      <span class="box">${S.checklist[c.id]?"✓":""}</span><span class="tx">${c.t}</span></button>`).join("")}
+  </div>
+
+  <div class="card">
+    <h2>History</h2>
+    ${recent.length?recent.map(histRow).join(""):`<p class="sub" style="margin:6px 0 0">Nothing logged yet. Your first session will show up here.</p>`}
+    ${S.sessions.length>20?`<p class="sub" style="margin:12px 0 0">Showing the last 20 of ${S.sessions.length}.</p>`:""}
+  </div>`;
+
+  view$().querySelectorAll("[data-ck]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.ck;
+    S.checklist[id]=!S.checklist[id];
+    awardBadges(); save(); renderProgress();
+  });
+}
+function histRow(s){
+  const sets=s.exercises.reduce((n,r)=>n+r.sets.filter(v=>v!=null).length,0);
+  const face={easy:"😌",good:"🙂",tough:"😮‍💨"}[s.feel]||"🙂";
+  return `<div class="hist">
+    <div class="d">${fmtDate(s.date)}</div>
+    <div class="b">Phase ${s.phase} · ${sets} sets${s.heavy?" · heavy ice":""}
+      ${s.hurt?`<div class="flagged">⚠ Flagged: something hurt</div>`:""}
+      ${s.notes?`<div class="sub" style="margin-top:3px">${esc(s.notes)}</div>`:""}
+    </div>
+    <div class="feel">${face}</div>
+  </div>`;
+}
+
+/* ---- SETTINGS ---- */
+function renderSettings(){
+  view$().innerHTML=`
+  <div class="card">
+    <h2>Theme</h2>
+    <div class="badges" style="margin-top:12px">
+      ${THEMES.map(([k,n])=>`<button class="badge ${S.theme===k?"got":""}" data-th="${k}" style="opacity:1">
+        <div class="ic">◐</div><div class="nm">${n}</div></button>`).join("")}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sessions per week</h2>
+    <p class="sub" style="margin:6px 0 12px">This is what fills the rotation meter. Three is plenty alongside ice time.</p>
+    <div class="feels">
+      ${[3,4].map(n=>`<button data-goal="${n}" class="${S.weeklyGoal===n?"on":""}">
+        <span class="e mono">${n}</span><span class="l">per week</span></button>`).join("")}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Move between devices</h2>
+    <p class="sub" style="margin:6px 0 12px">Your history lives in this browser only. Copy a backup code here, paste it on the other device.</p>
+    <button class="btn wide" id="copy">Copy backup code</button>
+    <button class="btn quiet wide" id="paste" style="margin-top:8px">Paste backup code</button>
+    <p class="sub" style="margin:12px 0 0">${S.sessions.length} sessions stored.</p>
+  </div>
+
+  <div class="card">
+    <h2>Phase</h2>
+    <p class="sub" style="margin:6px 0 12px">Currently Phase ${S.phase}. Move down anytime if the work stops feeling controlled.</p>
+    <div class="feels">
+      ${[1,2,3].map(n=>`<button data-ph="${n}" class="${S.phase===n?"on":""}">
+        <span class="e mono">${n}</span><span class="l">${PHASES[n-1].name}</span></button>`).join("")}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Start over</h2>
+    <p class="sub" style="margin:6px 0 12px">Erases every session, badge, and target on this device.</p>
+    <button class="btn ghost wide" id="wipe">Erase everything</button>
+  </div>
+
+  <div class="card">
+    <p class="sub" style="margin:0">This is general training guidance, not medical or coaching advice. Volume and jump work should be cleared with a skating coach or a trainer who works with young athletes — especially during a growth spurt.</p>
+  </div>`;
+
+  view$().querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{ S.theme=b.dataset.th; save(); render(); });
+  view$().querySelectorAll("[data-goal]").forEach(b=>b.onclick=()=>{ S.weeklyGoal=+b.dataset.goal; save(); renderSettings(); });
+  view$().querySelectorAll("[data-ph]").forEach(b=>b.onclick=()=>{ S.phase=+b.dataset.ph; awardBadges(); save(); render(); });
+
+  document.getElementById("copy").onclick=async()=>{
+    const code=btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+    try{
+      await navigator.clipboard.writeText(code);
+      alert("Backup code copied. Paste it into the other device.");
+    }catch(e){
+      window.prompt("Copy this code:", code);
+    }
+  };
+  document.getElementById("paste").onclick=()=>{
+    const code=window.prompt("Paste the backup code:");
+    if(!code) return;
+    try{
+      const data=JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+      if(!data || !Array.isArray(data.sessions)) throw 0;
+      if(!confirm(`This will replace what's on this device (${S.sessions.length} sessions) with the code's ${data.sessions.length}. Continue?`)) return;
+      S=Object.assign(blank(),data); S.active=null; save(); view="today"; render();
+    }catch(e){
+      alert("That code didn't read correctly. Copy it again from the other device — it needs to be the whole thing.");
+    }
+  };
+  document.getElementById("wipe").onclick=()=>{
+    if(!confirm("Erase all sessions and progress on this device?")) return;
+    if(!confirm("Last check — this can't be undone.")) return;
+    S=blank(); save(); view="today"; render();
+  };
+}
+
+/* ============ BOOT ============ */
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  if(S.active && !confirm("You have a session in progress. Leave it?")) return;
+  if(S.active){ S.active=null; step=0; save(); }
+  stopTimer(); view=b.dataset.go; render();
+});
+awardBadges();
+render();
+</script>
+</body>
+</html>
