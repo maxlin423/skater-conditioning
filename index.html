@@ -248,7 +248,7 @@ const EX = {
     how:["Stand with feet hip-width, small bend in the knees.","Jump straight up.","Land softly, absorb into a bend, and stop.","Pause a full second before the next one."],
     tips:["This is not bouncing. Every rep starts from a stop.","Listen. Quiet landing means good landing.","If landings get loud or sloppy, the set is over."]},
 
-  balance:{name:"Single-leg balance with arms",phase:2,mode:"hold",sets:3,base:25,step:5,max:50,perSide:true,
+  balance:{name:"Single-leg balance with arms",phase:2,mode:"hold",sets:3,base:25,step:5,max:50,perSide:true,balanceScore:true,
     why:"Trains the ankle to hold steady while your upper body moves. That is rotation control.",
     how:["Stand on one leg, other knee lifted toward hip height.","Hold the position while your arms move through your jump pull-in.","Keep the standing ankle quiet."],
     tips:["The standing foot should not be sliding around.","Eyes on a fixed point helps.","Harder version: do it on a pillow or folded towel."]},
@@ -311,7 +311,10 @@ const BADGES = [
   {id:"w12",ic:"❄",nm:"12 weeks landed",test:s=>weeksLanded(s)>=12},
   {id:"p2",ic:"②",nm:"Phase 2",test:s=>s.phase>=2},
   {id:"p3",ic:"③",nm:"Phase 3",test:s=>s.phase>=3},
-  {id:"ready",ic:"★",nm:"Jump ready",test:s=>CHECKLIST.every(c=>s.checklist[c.id])}
+  {id:"ready",ic:"★",nm:"Jump ready",test:s=>CHECKLIST.every(c=>s.checklist[c.id])},
+  {id:"m1",ic:"↑",nm:"First measurement",test:s=>s.jumps.length>=1},
+  {id:"m5",ic:"↑↑",nm:"5 jump tests",test:s=>s.jumps.length>=5},
+  {id:"mup",ic:"⇧",nm:"Jumped higher",test:s=>s.jumps.length>=2 && Math.max(...s.jumps.map(j=>j.cm)) > s.jumps[0].cm}
 ];
 
 const THEMES=[["midnight","Midnight Rink"],["sunrise","Sunrise Session"],["cotton","Cotton Candy"],["emerald","Emerald Edge"]];
@@ -405,7 +408,8 @@ let timer = {id:null,left:0,total:0,running:false};
 
 function blank(){
   return {v:1,theme:"midnight",weeklyGoal:3,phase:1,sessions:[],targets:{},checklist:{},badges:[],active:null,
-          profile:{name:""},setupDone:false};
+          profile:{name:""},setupDone:false,
+          measure:{on:false,seen:false},jumps:[]};
 }
 function load(){
   try{
@@ -481,6 +485,86 @@ function awardBadges(){
   BADGES.forEach(b=>{ if(!S.badges.includes(b.id) && b.test(S)) S.badges.push(b.id); });
 }
 
+/* ============ MOTION SENSORS ============ */
+const G = 9.80665;
+
+function motionSupported(){ return typeof window.DeviceMotionEvent !== "undefined"; }
+function needsPermission(){
+  return motionSupported() && typeof DeviceMotionEvent.requestPermission === "function";
+}
+async function askMotion(){
+  if(!motionSupported()) return "unsupported";
+  if(!needsPermission()) return "granted";
+  try{
+    const r = await DeviceMotionEvent.requestPermission();
+    return r === "granted" ? "granted" : "denied";
+  }catch(e){ return "denied"; }
+}
+
+/* Records raw accelerometer magnitude while running. In free fall the phone
+   reads close to zero g, so a jump shows up as a dip in |a|. */
+function makeRecorder(){
+  const samples=[];
+  let started=0, live=false;
+  function onMotion(ev){
+    const a = ev.accelerationIncludingGravity;
+    if(!a || a.x==null) return;
+    const mag = Math.sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+    samples.push({t: performance.now()-started, m: mag});
+  }
+  function onGyro(ev){
+    const r = ev.rotationRate;
+    if(!r) return;
+    const w = Math.sqrt((r.alpha||0)**2 + (r.beta||0)**2 + (r.gamma||0)**2);
+    samples.push({t: performance.now()-started, w});
+  }
+  return {
+    start(mode){
+      samples.length=0; started=performance.now(); live=true;
+      window.addEventListener("devicemotion", mode==="gyro"?onGyro:onMotion);
+      this._h = mode==="gyro"?onGyro:onMotion;
+    },
+    stop(){
+      if(!live) return samples;
+      live=false;
+      window.removeEventListener("devicemotion", this._h);
+      return samples;
+    },
+    samples(){ return samples; }
+  };
+}
+
+/* Pull flight windows out of the trace and convert to height. */
+function analyseJumps(samples){
+  const FLOOR = 3.0;          // m/s^2 — below this we call it airborne
+  const MIN_MS = 150, MAX_MS = 900;
+  const out=[];
+  let inAir=false, t0=0;
+  for(const s of samples){
+    if(s.m==null) continue;
+    if(!inAir && s.m < FLOOR){ inAir=true; t0=s.t; }
+    else if(inAir && s.m >= FLOOR){
+      inAir=false;
+      const dt = s.t - t0;
+      if(dt>=MIN_MS && dt<=MAX_MS){
+        const t = dt/1000;
+        const cm = Math.round((G*t*t/8)*100);
+        if(cm>=3 && cm<=100) out.push({ms:Math.round(dt), cm});
+      }
+    }
+  }
+  return out;
+}
+
+/* Steadiness from rotation rate: less wobble, higher score. */
+function analyseBalance(samples){
+  const w = samples.map(s=>s.w).filter(v=>v!=null);
+  if(w.length < 15) return null;
+  const rms = Math.sqrt(w.reduce((a,v)=>a+v*v,0)/w.length);   // deg/s
+  const score = Math.round(100 * Math.max(0, Math.min(1, 1 - rms/40)));
+  return {score, rms:Math.round(rms*10)/10};
+}
+
 /* ============ AUDIO / HAPTIC ============ */
 let actx=null;
 function beep(freq=880,ms=180){
@@ -539,9 +623,122 @@ function render(){
   document.getElementById("eyebrow").textContent = S.active ? PHASES[S.active.phase-1].name : "Off-ice";
   document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-current", String(b.dataset.go===view)));
   if(!S.setupDone) return renderSetup();
+  if(view==="jump") return renderJump();
   if(S.active && view==="today") return renderSession();
   ({today:renderToday,program:renderProgram,progress:renderProgress,settings:renderSettings}[view])();
   window.scrollTo(0,0);
+}
+
+/* ---- JUMP TEST ---- */
+let jt = {phase:"idle",rec:null,found:[],tid:null};
+
+function renderJump(){
+  document.getElementById("title").textContent="Jump test";
+  document.getElementById("eyebrow").textContent="Measure";
+  const best = S.jumps.length ? S.jumps[S.jumps.length-1] : null;
+
+  if(jt.phase==="idle"){
+    view$().innerHTML=`
+    <button class="btn ghost sm" id="bk" style="margin-bottom:14px">← Today</button>
+    <div class="card">
+      <h2>Measure your jump</h2>
+      <p class="sub" style="margin:6px 0 12px">Phone goes in a waistband or a zipped pocket — somewhere snug against your hip. Loose in a hand or a bouncy pocket gives junk numbers.</p>
+      <ol class="how">
+        <li>Tuck the phone in and stand up straight.</li>
+        <li>Tap start. You get five seconds.</li>
+        <li>Do three max-effort straight jumps, landing softly, with a pause between each.</li>
+        <li>Take the phone out and read the numbers.</li>
+      </ol>
+      <div class="notice">This measures your hang time and works the height out from it. Shaking the phone will produce a number too — it just won't be your number.</div>
+      <button class="btn wide" id="go" style="margin-top:16px">Start jump test</button>
+    </div>
+    ${best?`<div class="card"><h2>Last test</h2>
+      <div class="target"><b>${best.cm} cm</b><span>on ${fmtDate(best.date)}</span></div></div>`:""}`;
+    document.getElementById("bk").onclick=()=>{ view="today"; render(); };
+    document.getElementById("go").onclick=beginJump;
+    return;
+  }
+
+  if(jt.phase==="count"||jt.phase==="rec"){
+    const counting = jt.phase==="count";
+    view$().innerHTML=`
+    <div class="card" style="text-align:center">
+      <div class="eyebrow">${counting?"Get ready":"Jump now"}</div>
+      <div class="clock mono" id="clock" style="font-size:64px;margin:14px 0;color:var(--accent)">${fmtClock(Math.max(0,timer.left))}</div>
+      <p class="sub" style="margin:0">${counting?"Phone tucked in, stand tall.":`Three max jumps. Detected so far: <b class="mono">${jt.found.length}</b>`}</p>
+      <button class="btn ghost wide" id="cancel" style="margin-top:18px">Cancel</button>
+    </div>`;
+    document.getElementById("cancel").onclick=endJump;
+    return;
+  }
+
+  if(jt.phase==="done"){
+    const list = jt.found;
+    const best = list.length ? Math.max(...list.map(j=>j.cm)) : 0;
+    view$().innerHTML=`
+    <div class="card">
+      <h2>${list.length?"Result":"Nothing detected"}</h2>
+      ${list.length?`
+        <div class="target"><b>${best} cm</b><span>best of ${list.length}</span></div>
+        <div class="sets">${list.map((j,i)=>`<div class="set ${j.cm===best?"on":""}">
+          <div class="n">Jump ${i+1}</div>
+          <div class="unit mono">${j.cm} cm · ${j.ms} ms hang</div></div>`).join("")}</div>
+        <p class="sub" style="margin:12px 0 0">Good to about a centimetre or two. Compare across months, not days — this bounces around depending on how fresh your legs are.</p>
+        <button class="btn wide" id="save" style="margin-top:14px">Save ${best} cm</button>
+      `:`
+        <p class="sub" style="margin:6px 0 0">No clean jumps came through. Usually the phone wasn't snug enough, or the jumps were too small to register. Try again with it tucked tighter.</p>
+      `}
+      <button class="btn quiet wide" id="again" style="margin-top:8px">Try again</button>
+      <button class="btn ghost wide" id="bk2" style="margin-top:8px">Back to Today</button>
+    </div>`;
+    const sv=document.getElementById("save");
+    if(sv) sv.onclick=()=>{
+      S.jumps.push({date:Date.now(),cm:best,all:list.map(j=>j.cm)});
+      awardBadges(); save(); jt.phase="idle"; jt.found=[]; view="today"; render();
+    };
+    document.getElementById("again").onclick=()=>{ jt.phase="idle"; jt.found=[]; renderJump(); };
+    document.getElementById("bk2").onclick=()=>{ jt.phase="idle"; jt.found=[]; view="today"; render(); };
+    return;
+  }
+}
+
+async function beginJump(){
+  const perm = await askMotion();
+  if(perm!=="granted"){
+    alert(perm==="unsupported"
+      ? "This device or browser doesn't share motion data with web pages, so the jump test can't run here. Everything else in the app works fine."
+      : "Motion access was turned down, so the jump test can't run. You can re-enable it in your browser's site settings.");
+    return;
+  }
+  jt.phase="count"; jt.found=[];
+  renderJump();
+  startTimer(5, ()=>{
+    jt.phase="rec";
+    jt.rec = makeRecorder();
+    jt.rec.start("accel");
+    beep(1046,300); buzz(200);
+    renderJump();
+    startTimer(20, endJump);
+    jt.tid = setInterval(()=>{
+      if(jt.phase!=="rec") return;
+      const found = analyseJumps(jt.rec.samples());
+      if(found.length !== jt.found.length){
+        jt.found = found;
+        const el=view$().querySelector(".sub b");
+        if(el) el.textContent = found.length;
+        if(found.length>=3){ endJump(); }
+      }
+    }, 400);
+  });
+}
+
+function endJump(){
+  stopTimer();
+  if(jt.tid){ clearInterval(jt.tid); jt.tid=null; }
+  if(jt.rec){ jt.found = analyseJumps(jt.rec.stop()); jt.rec=null; }
+  jt.phase="done";
+  beep(660,200);
+  renderJump();
 }
 
 /* ---- FIRST RUN ---- */
@@ -623,6 +820,12 @@ function renderToday(){
     <button class="btn wide" id="start" style="margin-top:16px">Start today's session</button>
   </div>
 
+  ${S.measure.on?`<div class="card">
+    <h2>Jump test</h2>
+    <p class="sub" style="margin:6px 0 14px">${jumpPrompt()}</p>
+    <button class="btn quiet wide" id="jump">Measure my jump</button>
+  </div>`:""}
+
   ${canAdvance?`<div class="card">
     <h2>Ready for Phase ${S.phase+1}?</h2>
     <p class="sub" style="margin:6px 0 14px">You've logged ${phaseSessionCount(S.phase)} sessions in Phase ${S.phase}. Move up only if the current work feels controlled, not just survivable.</p>
@@ -645,8 +848,18 @@ function renderToday(){
     S.active = {date:Date.now(),phase:S.phase,heavy,exercises:plan.map(id=>({id,sets:[]}))};
     step=0; save(); render();
   };
+  const jb=document.getElementById("jump");
+  if(jb) jb.onclick=()=>{ view="jump"; jt.phase="idle"; jt.found=[]; render(); };
   const ad=document.getElementById("advance");
   if(ad) ad.onclick=()=>{ S.phase++; awardBadges(); save(); render(); };
+}
+
+function jumpPrompt(){
+  const last = S.jumps[S.jumps.length-1];
+  if(!last) return "Set a starting number so you have something to beat later.";
+  const days = Math.floor((Date.now()-last.date)/86400000);
+  if(days < 6) return `Last test was ${last.cm} cm, ${days===0?"today":days===1?"yesterday":days+" days ago"}. Once a week is plenty — daily numbers just bounce around.`;
+  return `Last test was ${last.cm} cm, ${days} days ago. Good time for another.`;
 }
 
 /* ---- SESSION WIZARD ---- */
@@ -708,16 +921,28 @@ function renderSession(){
   });
 
   if(isHold){
-    const reset=()=>{ stopTimer(); timer.left=tgt; timer.total=tgt; paintClock(); };
+    const wantBalance = S.measure.on && e.balanceScore;
+    let brec=null;
+    const reset=()=>{ stopTimer(); if(brec){brec.stop();brec=null;} timer.left=tgt; timer.total=tgt; paintClock(); };
     reset();
-    document.getElementById("tBtn").onclick=()=>{
-      if(timer.running){ stopTimer(); paintClock(); return; }
+    document.getElementById("tBtn").onclick=async()=>{
+      if(timer.running){ stopTimer(); if(brec){brec.stop();brec=null;} paintClock(); return; }
       const from = (timer.left>0 && timer.left<timer.total) ? timer.left : tgt;
       timer.total = tgt;
+      if(wantBalance && !brec){
+        const perm = await askMotion();
+        if(perm==="granted"){ brec = makeRecorder(); brec.start("gyro"); }
+      }
       startTimer(from, ()=>{
+        let bal=null;
+        if(brec){ bal = analyseBalance(brec.stop()); brec=null; }
         const i=rec.sets.findIndex(v=>v==null);
         const idx = i>=0 ? i : rec.sets.length;
-        if(idx<nSets){ rec.sets[idx]=tgt; save(); renderSession(); }
+        if(idx<nSets){
+          rec.sets[idx]=tgt;
+          if(bal){ rec.balance = rec.balance||[]; rec.balance[idx]=bal.score; }
+          save(); renderSession();
+        }
       });
     };
     document.getElementById("tReset").onclick=reset;
@@ -740,10 +965,11 @@ function renderSession(){
 function setRow(rec,i,tgt,isHold,perSide){
   const on = rec.sets[i]!=null;
   const val = on ? rec.sets[i] : tgt;
+  const bal = rec.balance && rec.balance[i]!=null ? rec.balance[i] : null;
   return `<div class="set ${on?"on":""}">
     <div class="n">Set ${i+1}</div>
     ${isHold
-      ? `<div class="unit mono">${fmtClock(val)}${perSide?" each side":""}</div>`
+      ? `<div class="unit mono">${fmtClock(val)}${perSide?" each side":""}${bal!=null?` · steady ${bal}`:""}</div>`
       : `<input id="v${i}" type="number" inputmode="numeric" min="0" value="${val}" ${on?"disabled":""} aria-label="Reps for set ${i+1}">
          <div class="unit">reps${perSide?" each side":""}</div>`}
     <button class="tick" data-set="${i}" aria-label="${on?"Undo":"Log"} set ${i+1}">${on?"✓":"+"}</button>
@@ -838,6 +1064,11 @@ function showEx(id){
 function renderProgress(){
   const recent=S.sessions.slice(-20).reverse();
   view$().innerHTML=`
+  ${S.jumps.length?`<div class="card">
+    <h2>Jump height</h2>
+    ${jumpChart()}
+  </div>`:""}
+
   <div class="card">
     <h2>Badges</h2>
     <div class="badges" style="margin-top:12px">
@@ -865,6 +1096,29 @@ function renderProgress(){
     awardBadges(); save(); renderProgress();
   });
 }
+function jumpChart(){
+  const js = S.jumps.slice(-14);
+  const max = Math.max(...js.map(j=>j.cm));
+  const min = Math.min(...js.map(j=>j.cm));
+  const first = js[0].cm, last = js[js.length-1].cm;
+  const W=100, H=42, pad=3;
+  const span = Math.max(1, max-min);
+  const pts = js.map((j,i)=>{
+    const x = js.length===1 ? W/2 : pad + i*(W-2*pad)/(js.length-1);
+    const y = H-pad - ((j.cm-min)/span)*(H-2*pad);
+    return [x,y];
+  });
+  const path = pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const delta = last-first;
+  return `
+  <div class="target"><b>${last} cm</b><span>most recent${js.length>1?` · ${delta>=0?"+":""}${delta} cm since ${fmtDate(js[0].date)}`:""}</span></div>
+  <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:96px;display:block;margin:6px 0 4px" aria-hidden="true">
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    ${pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="1.6" fill="var(--edge)"/>`).join("")}
+  </svg>
+  <p class="sub" style="margin:0">${js.length} test${js.length===1?"":"s"} · range ${min}–${max} cm. Day-to-day swings are normal; look at the shape over months.</p>`;
+}
+
 function histRow(s){
   const sets=s.exercises.reduce((n,r)=>n+r.sets.filter(v=>v!=null).length,0);
   const face={easy:"😌",good:"🙂",tough:"😮‍💨"}[s.feel]||"🙂";
@@ -924,6 +1178,19 @@ function renderSettings(){
   </div>
 
   <div class="card">
+    <h2>Measure mode</h2>
+    <p class="sub" style="margin:6px 0 4px">Uses the phone's motion sensors to measure your jump height and how steady your single-leg holds are. Off by default.</p>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <div class="lbl">Turn on measuring</div>
+        <div class="sub">${motionSupported()?"Your phone will ask permission the first time.":"This device doesn't share motion data with web pages."}</div>
+      </div>
+      <button class="switch" id="meas" role="switch" aria-checked="${S.measure.on}" aria-label="Measure mode" ${motionSupported()?"":"disabled style=opacity:.4"}><i></i></button>
+    </div>
+    ${S.measure.on?`<div class="notice">This measures, it doesn't police. The numbers are only worth having if they're real ones — and it works best on a phone, not a laptop.</div>`:""}
+  </div>
+
+  <div class="card">
     <h2>Move between devices</h2>
     <p class="sub" style="margin:6px 0 12px">Your history lives in this browser only. Copy a backup code here, paste it on the other device.</p>
     <button class="btn wide" id="copy">Copy backup code</button>
@@ -963,6 +1230,20 @@ function renderSettings(){
       window.prompt("Copy this code:", code);
     }
   };
+  const mb=document.getElementById("meas");
+  if(mb && motionSupported()) mb.onclick=async()=>{
+    if(!S.measure.on){
+      const perm = await askMotion();
+      if(perm!=="granted"){
+        alert(perm==="unsupported"
+          ? "This device doesn't share motion data with web pages."
+          : "Motion access was turned down. You can change it in your browser's site settings and try again.");
+        return;
+      }
+    }
+    S.measure.on=!S.measure.on; S.measure.seen=true; save(); renderSettings();
+  };
+
   document.getElementById("paste").onclick=()=>importCode();
 
   const pn=document.getElementById("pname");

@@ -21,12 +21,33 @@ Everything is stored in the browser's `localStorage` under the key `office-jump-
 
 ## What's in it
 
-- **Today** — weekly rotation meter, heavy-ice-week toggle, session start
+- **Today** — daily greeting, weekly rotation meter, heavy-ice-week toggle, session start,
+  jump test card when measure mode is on
 - **Session wizard** — one exercise at a time, write-up + form notes, set logging,
   countdown timers for holds with beep and vibrate, 60s rest timer
 - **Program** — full three-phase exercise library
-- **Progress** — badges, jump-readiness checklist, session history
-- **Settings** — four themes, weekly goal, phase, backup codes, erase
+- **Progress** — jump height trend, badges, jump-readiness checklist, session history
+- **Settings** — skater name, four themes, weekly goal, phase, measure mode,
+  backup codes, erase
+
+## Measure mode
+
+Off by default; turn it on in Settings. Uses `DeviceMotionEvent`, which requires
+HTTPS — GitHub Pages provides that. On iOS the phone prompts for motion access
+the first time.
+
+**Jump height** comes from flight time. The phone reads close to zero g while
+airborne, so a jump shows as a dip in acceleration magnitude; height is
+`h = g·t²/8`. Resolution is about 1–2 cm at typical sampling rates, so the
+number is worth comparing across months, not days. Implausible readings (under
+3 cm, over 100 cm, flights outside 150–900 ms) are discarded.
+
+**Balance score** comes from rotation rate during single-leg holds — RMS wobble
+in deg/s, mapped to 0–100. It attaches to the set automatically when the hold
+timer finishes.
+
+If sensors are unavailable or permission is refused, both fall back cleanly and
+nothing else in the app is affected.
 
 Targets adapt on their own: complete every set at target without flagging the
 session as tough, and the target nudges up next time. Flag it tough, or fall
@@ -39,11 +60,6 @@ All content lives in the `EX` object and the `PHASES` array near the top of the
 `<script>` block. Each exercise has `why`, `how`, `tips`, `mode` (`reps` or
 `hold`), `sets`, `base`, `step`, `max`, and optional `perSide` / `jump` flags.
 Adding an exercise means adding an entry and listing its id in a phase's `plan`.
-
-## Not in this version
-
-Measure mode — jump height from accelerometer flight time, and balance scoring
-from the gyroscope — is a planned second pass.
 
 ## Note
 
