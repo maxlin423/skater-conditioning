@@ -187,6 +187,25 @@ textarea{width:100%;background:var(--surface2);border:1px solid var(--line);bord
 .swap .sl{font-size:13px;color:var(--muted);margin-bottom:6px}
 .swapopts{display:flex;gap:8px;flex-wrap:wrap}
 .swapopts button{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+/* ---------- per-exercise feedback ---------- */
+.fb{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.fb .fbl{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px}
+.fbrow{display:flex;gap:8px}
+.fbrow button{flex:1;background:var(--surface2);border:1px solid transparent;border-radius:12px;
+  padding:11px 6px;font-weight:600;font-size:14px}
+.fbrow button.on{border-color:var(--accent);color:var(--accent)}
+.fbmore{display:block;width:100%;margin-top:10px;background:transparent;color:var(--muted);
+  font-size:13px;font-weight:600;padding:8px}
+.fbdetail{margin-top:6px}
+.fbdetail textarea{min-height:62px;font-size:14px}
+.metric{display:flex;align-items:center;gap:10px;margin-top:10px}
+.metric .ml{flex:1;font-weight:600}
+.metric .mv{font-size:13px;color:var(--muted);font-weight:600}
+.metric input{width:92px;background:var(--surface2);border:1px solid var(--line);
+  border-radius:10px;padding:10px;min-height:44px;text-align:center;font-weight:600}
+.mrow{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line)}
+.mrow:last-child{border-bottom:0}
+.mrow .md{color:var(--muted)}
 .badge.prog-badge .nm{font-size:11px}
 .bgroup{font-size:12px;color:var(--muted);font-weight:600;margin:14px 0 0}
 .errs{margin:10px 0 0;padding:0;list-style:none}
@@ -797,6 +816,164 @@ function installProgram(def, opts){
           note: sanitizeText(def.revisionNote, 600)};
 }
 
+/* ============ TRAINING EXPORT ============ */
+/* What an authoring agent reads to revise the program. Derived signals are
+   precomputed rather than left to be re-derived from raw logs, because "she has
+   been stuck on split squats for five weeks" is the whole point of the exercise
+   and it should be impossible to miss. */
+const EXPORT_VERSION = 1;
+const STALL_DAYS = 21;
+
+function buildExport(opts){
+  opts = opts || {};
+  const pid = S.activeProgram, rec = PS();
+  const mine = S.sessions.filter(s=>s.programId===pid);
+  const now = Date.now();
+  const days = ts => Math.floor((now-ts)/86400000);
+
+  /* per-exercise roll-up */
+  const ex = {};
+  const touch = id=>{
+    if(!ex[id]) ex[id] = {id, appearances:0, skipped:0, swappedInFor:{}, swappedAwayTo:{},
+      sets:[], effort:{}, fun:{}, painDates:[], notes:[], firstSeen:null, lastSeen:null};
+    return ex[id];
+  };
+  mine.forEach(s=>{
+    (s.exercises||[]).forEach(r=>{
+      const a = touch(r.id);
+      a.appearances++;
+      a.firstSeen = a.firstSeen==null ? s.date : Math.min(a.firstSeen, s.date);
+      a.lastSeen  = Math.max(a.lastSeen||0, s.date);
+      if(r.skipped || !r.sets.some(v=>v!=null)) a.skipped++;
+      else a.sets.push({date:s.date, values:r.sets.filter(v=>v!=null)});
+      if(r.swappedFrom){
+        a.swappedInFor[r.swappedFrom] = (a.swappedInFor[r.swappedFrom]||0)+1;
+        const b = touch(r.swappedFrom);
+        b.swappedAwayTo[r.id] = (b.swappedAwayTo[r.id]||0)+1;
+      }
+      const f = r.fb;
+      if(f){
+        if(f.effort) a.effort[f.effort] = (a.effort[f.effort]||0)+1;
+        if(f.fun) a.fun[f.fun] = (a.fun[f.fun]||0)+1;
+        if(f.pain) a.painDates.push(new Date(s.date).toISOString().slice(0,10));
+        if((f.note||"").trim()) a.notes.push({date:new Date(s.date).toISOString().slice(0,10), note:f.note.trim()});
+      }
+    });
+  });
+
+  const log = rec.targetLog || {};
+  const exercises = Object.keys(ex).map(id=>{
+    const a = ex[id], e = EX[id], moves = log[id] || [];
+    const ups = moves.filter(m=>m.to > m.from);
+    const lastUp = ups.length ? ups[ups.length-1].date : null;
+    const cur = e ? targetFor(id) : null;
+    return {
+      id,
+      name: e ? e.name : "(no longer in the program)",
+      inProgram: !!e,
+      mode: e ? e.mode : null,
+      target: cur, base: e?e.base:null, max: e?e.max:null,
+      /* A fixed exercise (step 0 — warm-ups, cool-downs) is not "at cap"; its
+         target was never going to move, and reporting it as maxed out would
+         invite an authoring agent to raise a ceiling that means nothing. */
+      fixed: !!(e && e.step === 0),
+      atCap: !!(e && e.step > 0 && cur >= e.max),
+      neverMoved: ups.length===0,
+      daysSinceIncrease: lastUp!=null ? days(lastUp) : null,
+      appearances: a.appearances,
+      skipped: a.skipped,
+      weeksInProgram: a.firstSeen!=null ? Math.max(1, Math.round(days(a.firstSeen)/7)) : 0,
+      daysSinceLastDone: a.lastSeen!=null ? days(a.lastSeen) : null,
+      effortMix: a.effort,
+      funMix: a.fun,
+      painDates: a.painDates,
+      swappedInFor: a.swappedInFor,
+      swappedAwayTo: a.swappedAwayTo,
+      equipment: e ? (e.equipment||[]).map(q=>q.label) : [],
+      recentSets: a.sets.slice(-6).map(x=>x.values),
+      notes: a.notes.slice(-4)
+    };
+  });
+
+  const dull = e => (e.funMix.dull||0);
+  const hard = e => (e.effortMix.hard||0);
+  const signals = {
+    stalled: exercises.filter(e=>e.inProgram && !e.fixed && !e.atCap && e.appearances>=5 &&
+                (e.neverMoved || (e.daysSinceIncrease!=null && e.daysSinceIncrease>=STALL_DAYS)))
+              .map(e=>e.id),
+    atCap: exercises.filter(e=>e.atCap).map(e=>e.id),
+    consistentlyHard: exercises.filter(e=>hard(e)>=3 && hard(e) > (e.effortMix.easy||0)).map(e=>e.id),
+    tooEasy: exercises.filter(e=>(e.effortMix.easy||0)>=3 && !e.atCap).map(e=>e.id),
+    dullest: exercises.filter(e=>dull(e)>=2 && dull(e) > (e.funMix.fun||0))
+              .sort((a,b)=>dull(b)-dull(a)).map(e=>e.id),
+    painLinked: exercises.filter(e=>e.painDates.length).map(e=>({id:e.id, dates:e.painDates})),
+    frequentlySkipped: exercises.filter(e=>e.appearances>=3 && e.skipped/e.appearances>=0.34).map(e=>e.id),
+    alternativePreferred: exercises.filter(e=>Object.keys(e.swappedAwayTo).length &&
+                Object.values(e.swappedAwayTo).reduce((n,v)=>n+v,0) >= 2)
+              .map(e=>({id:e.id, insteadUsed:e.swappedAwayTo})),
+    unchangedWeeks: exercises.filter(e=>e.inProgram).reduce((m,e)=>{ m[e.id]=e.weeksInProgram; return m; },{})
+  };
+
+  /* adherence, most recent week first */
+  const weeks = [];
+  for(let i=0;i<8;i++){
+    const start = mondayOf(new Date(now - i*7*86400000));
+    weeks.push(mine.filter(s=>weekKey(s.date)===start).length);
+  }
+
+  const phaseIdx = rec.phase||1, phase = PHASES[phaseIdx-1];
+  const inPhase = mine.filter(s=>s.phase===phaseIdx);
+
+  const out = {
+    kind: "training-export",
+    exportVersion: EXPORT_VERSION,
+    targetSchema: 1,
+    generatedAt: new Date(now).toISOString(),
+    instructions: "Training history from the off-ice training app. Feed this to the training-program-author skill in revise mode to produce an updated program. Keep the same program id and bump the version so the skater's progress carries forward. See PROGRAM_FORMAT.md.",
+
+    skater: {
+      name: (S.profile.name||"").trim() || null,
+      ageYears: ageYears(),
+      metrics: (P.metrics||[]).reduce((m,def)=>{
+        const l = metricLog(def.id);
+        if(l.length) m[def.id] = {label:def.label, unit:def.unit||null,
+          entries:l.slice(-12).map(x=>({date:new Date(x.date).toISOString().slice(0,10), value:x.value}))};
+        return m;
+      },{})
+    },
+    equipment: S.equipment || "",
+
+    program: {
+      id: pid, name: P.name, version: rec.def.version,
+      phase: phase ? phase.id : null, phaseName: phase ? phase.name : null,
+      phaseNumber: phaseIdx, phasesTotal: PHASES.length,
+      sessionsInPhase: inPhase.length,
+      unlockMet: phaseUnlocked(phaseIdx),
+      dayRotation: phase && phase.days.length>1 ? phase.days.map(d=>d.id) : null
+    },
+
+    adherence: {
+      weeklyGoal: weeklyGoal(),
+      sessionsTotal: mine.length,
+      last8Weeks: weeks,
+      daysSinceLastSession: mine.length ? days(mine[mine.length-1].date) : null,
+      heavyIceWeeks: mine.filter(s=>s.heavy).length,
+      toughSessions: mine.filter(s=>s.feel==="tough").length,
+      painSessions: mine.filter(s=>s.hurt).length
+    },
+
+    exercises,
+    signals,
+    checklist: (P.checklist||[]).map(c=>({t:c.t, done:!!checklistState()[c.id]})),
+    jumps: S.jumps.slice(-12).map(j=>({date:new Date(j.date).toISOString().slice(0,10), cm:j.cm})),
+    sessionNotes: mine.slice(-8).filter(s=>(s.notes||"").trim())
+      .map(s=>({date:new Date(s.date).toISOString().slice(0,10), feel:s.feel, hurt:!!s.hurt, note:s.notes.trim()}))
+  };
+
+  if(opts.raw) out.rawSessions = mine;
+  return out;
+}
+
 /* The definition as authored, for handing to an authoring agent or another
    device. Exports the stored def, not the resolved form, so it stays compact
    and re-importable. */
@@ -838,6 +1015,7 @@ let EX = {}, PHASES = [], CHECKLIST = [];   /* live views onto P, rebuilt on swi
 let S = load();
 let view = "today";
 let step = 0;
+let fbOpen = false;          /* "add detail" expanded on the current exercise */
 let timer = {id:null,left:0,total:0,running:false};
 
 function blank(){
@@ -850,6 +1028,7 @@ function blank(){
     weeklyGoalOverride:null,
     sessions:[], badges:[], jumps:[],
     metrics:{},                   /* metricId -> [{date, value}] */
+    metricSnooze:0,               /* "not now" on a measurement invite */
     active:null,
     measure:{on:false,seen:false}
   };
@@ -968,12 +1147,70 @@ function targetsMap(){ return PS().targets; }
 function checklistState(){ return PS().checklist; }
 function weeklyGoal(){ return S.weeklyGoalOverride || P.weeklyGoal || 3; }
 
+/* ============ AGE AND BODY METRICS ============ */
+function ageYears(){
+  const dob = S.profile && S.profile.dob;
+  if(!dob) return null;
+  const d = new Date(dob);
+  if(isNaN(d.getTime())) return null;
+  const y = (Date.now() - d.getTime()) / (365.2425*86400000);
+  return (y > 0 && y < 100) ? Math.round(y*10)/10 : null;
+}
+function metricLog(id){ return (S.metrics && S.metrics[id]) || []; }
+function latestMetric(id){
+  const a = metricLog(id);
+  return a.length ? a[a.length-1] : null;
+}
+function logMetric(id, value){
+  if(!S.metrics) S.metrics = {};
+  if(!S.metrics[id]) S.metrics[id] = [];
+  S.metrics[id].push({date:Date.now(), value});
+  S.metrics[id] = S.metrics[id].slice(-60);
+}
+const CADENCE_DAYS = {weekly:7, monthly:30, quarterly:91};
+function metricDue(m){
+  const last = latestMetric(m.id);
+  if(!last) return true;
+  const days = (Date.now() - last.date)/86400000;
+  return days >= (CADENCE_DAYS[m.cadence] || 30);
+}
+function metricsDue(){
+  if(S.metricSnooze && Date.now() < S.metricSnooze) return [];
+  return (P.metrics||[]).filter(metricDue);
+}
+
+/* Optional scaling of prescribed volume from age and tracked metrics. Programs
+   pick a named strategy; nothing here is supplied by the program as code. */
+function volumeScale(){
+  const out = {sets:1, jumpRepsMax:null};
+  const vs = P.volumeScaling || {strategy:"none"};
+  const p = vs.params || {};
+  if(vs.strategy === "age-banded"){
+    const age = ageYears();
+    if(age == null) return out;
+    const band = (p.bands||[]).find(b =>
+      (b.minAge==null || age >= b.minAge) && (b.maxAge==null || age <= b.maxAge));
+    if(band){
+      if(band.setsMultiplier) out.sets = band.setsMultiplier;
+      if(band.jumpRepsMax) out.jumpRepsMax = band.jumpRepsMax;
+    }
+  }else if(vs.strategy === "bodyweight-scaled"){
+    const m = latestMetric(p.metric);
+    if(m && p.referenceValue) out.sets = Math.pow(m.value/p.referenceValue, p.exponent||0);
+  }
+  out.sets = Math.max(0.5, Math.min(1.5, out.sets));
+  return out;
+}
+
 /* ============ HELPERS ============ */
 function targetFor(id){
   const e = EX[id];
   if(!e) return 0;
   const t = targetsMap()[id];
-  return t != null ? t : e.base;
+  let v = t != null ? t : e.base;
+  const cap = e.jump ? volumeScale().jumpRepsMax : null;
+  if(cap != null) v = Math.min(v, cap);
+  return v;
 }
 function setsFor(id, heavy){
   const e = EX[id];
@@ -981,6 +1218,10 @@ function setsFor(id, heavy){
   let n = e.sets;
   if(n <= 1) return n;              /* warm-ups and cool-downs stay single */
   if(heavy) n = Math.max(2, n-1);
+  const mult = volumeScale().sets;
+  /* Floor at 2. A heavy ice week and age scaling compound, and an exercise the
+     program prescribed as real work shouldn't quietly become a single set. */
+  if(mult !== 1) n = Math.max(2, Math.min(LIMITS.sets, Math.round(n*mult)));
   return n;
 }
 function planFor(phase, heavy, dayIdx){
@@ -1052,7 +1293,16 @@ function adapt(session){
 
     const clean = done.length >= needed && done.every(v=>v>=cur) && session.feel!=="tough" && !session.hurt;
     rec0.streaks[rec.id] = clean ? (next>cur ? 0 : streak+1) : 0;
-    rec0.targets[rec.id] = Math.max(e.base, Math.min(e.max, next));
+    const settled = Math.max(e.base, Math.min(e.max, next));
+    /* Record movement only. An exercise whose target hasn't moved in weeks is
+       the single most useful thing the export can tell an authoring agent. */
+    if(settled !== cur){
+      if(!rec0.targetLog) rec0.targetLog = {};
+      if(!rec0.targetLog[rec.id]) rec0.targetLog[rec.id] = [];
+      rec0.targetLog[rec.id].push({date:session.date||Date.now(), from:cur, to:settled});
+      rec0.targetLog[rec.id] = rec0.targetLog[rec.id].slice(-20);
+    }
+    rec0.targets[rec.id] = settled;
   });
 }
 
@@ -1410,6 +1660,7 @@ function renderToday(){
   const landed = done>=goal;
   const ph = currentPhase();
   const canAdvance = curPhase() < PHASES.length && phaseUnlocked(curPhase());
+  const due = metricsDue();
 
   view$().innerHTML = `
   <p class="greet">${greetingToday()}</p>
@@ -1455,6 +1706,13 @@ function renderToday(){
     <button class="btn wide" id="start" style="margin-top:16px">Start today's session</button>
   </div>
 
+  ${due.length?`<div class="card">
+    <h2>Quick measurement</h2>
+    <p class="sub" style="margin:6px 0 14px">${esc(P.name)} uses ${due.map(m=>esc(m.label.toLowerCase())).join(" and ")} to size the work. Takes a minute, and it can wait if now isn't a good time.</p>
+    <button class="btn quiet wide" id="goMeasure">Log ${due.length===1?esc(due[0].label.toLowerCase()):"them"}</button>
+    <button class="btn ghost wide" id="laterMeasure" style="margin-top:8px">Not now</button>
+  </div>`:""}
+
   ${S.measure.on?`<div class="card">
     <h2>Jump test</h2>
     <p class="sub" style="margin:6px 0 14px">${jumpPrompt()}</p>
@@ -1489,6 +1747,11 @@ function renderToday(){
                 heavy, exercises:plan.map(id=>({id,sets:[]}))};
     step=0; save(); render();
   };
+  const gm=document.getElementById("goMeasure");
+  if(gm) gm.onclick=()=>{ view="settings"; render(); };
+  const lm=document.getElementById("laterMeasure");
+  if(lm) lm.onclick=()=>{ S.metricSnooze = Date.now() + 7*86400000; save(); renderToday(); };
+
   const jb=document.getElementById("jump");
   if(jb) jb.onclick=()=>{ view="jump"; jt.phase="idle"; jt.found=[]; render(); };
   const ad=document.getElementById("advance");
@@ -1516,6 +1779,8 @@ function renderSession(){
   const isHold=e.mode==="hold";
 
   const alts = (e.alternatives||[]).filter(id=>EX[id]);
+  if(!rec.fb) rec.fb = {effort:null, fun:null, pain:false, note:""};
+  const fb = rec.fb;
 
   view$().innerHTML=`
   <div class="stepbar">${A.exercises.map((_,i)=>`<span class="${i<step?"done":i===step?"now":""}"></span>`).join("")}</div>
@@ -1554,6 +1819,31 @@ function renderSession(){
     <div class="timer" style="margin-top:14px">
       <div class="sub" style="margin-bottom:8px">Rest between sets</div>
       <button class="btn sm quiet" id="rest">Rest 60s</button>
+    </div>
+
+    <div class="fb">
+      <div class="fbl">How did that one go?</div>
+      <div class="fbrow">
+        ${[["easy","Easy"],["right","Just right"],["hard","Hard"]].map(([k,l])=>
+          `<button data-eff="${k}" class="${fb.effort===k?"on":""}">${l}</button>`).join("")}
+      </div>
+      <button class="fbmore" id="fbMore">${fbOpen?"Less":"Add detail"}</button>
+      <div class="fbdetail ${fbOpen?"":"hide"}">
+        <div class="fbl">Was it fun?</div>
+        <div class="fbrow">
+          ${[["fun","Fun"],["fine","Fine"],["dull","Boring"]].map(([k,l])=>
+            `<button data-fun="${k}" class="${fb.fun===k?"on":""}">${l}</button>`).join("")}
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div>
+            <div class="lbl">This one hurt</div>
+            <div class="sub">Not muscle burn — actual pain.</div>
+          </div>
+          <button class="switch" id="fbPain" role="switch" aria-checked="${!!fb.pain}" aria-label="This exercise hurt"><i></i></button>
+        </div>
+        ${fb.pain?`<div class="notice">Skip the rest of this one today, and tell your parent or coach. It gets recorded against this exercise so it isn't forgotten.</div>`:""}
+        <textarea id="fbNote" placeholder="Anything about this exercise? (optional)">${esc(fb.note||"")}</textarea>
+      </div>
     </div>`}
   </div>
 
@@ -1561,6 +1851,23 @@ function renderSession(){
     <button class="btn ghost" id="back">${step===0?"Quit":"Back"}</button>
     <button class="btn" id="next">${step===total-1?"Finish up":"Next"}</button>
   </div>`;
+
+  /* Feedback. Effort is one tap and always visible; everything else sits behind
+     "Add detail" so the fast path through a session stays one tap per exercise.
+     The note is read back before any re-render so typing is never lost. */
+  const grabNote = ()=>{ const n=document.getElementById("fbNote"); if(n) fb.note = n.value.slice(0,400); };
+  view$().querySelectorAll("[data-eff]").forEach(b=>b.onclick=()=>{
+    grabNote(); fb.effort = fb.effort===b.dataset.eff ? null : b.dataset.eff; save(); renderSession();
+  });
+  view$().querySelectorAll("[data-fun]").forEach(b=>b.onclick=()=>{
+    grabNote(); fb.fun = fb.fun===b.dataset.fun ? null : b.dataset.fun; save(); renderSession();
+  });
+  const more=document.getElementById("fbMore");
+  if(more) more.onclick=()=>{ grabNote(); fbOpen=!fbOpen; save(); renderSession(); };
+  const painBtn=document.getElementById("fbPain");
+  if(painBtn) painBtn.onclick=()=>{ grabNote(); fb.pain=!fb.pain; save(); renderSession(); };
+  const noteBox=document.getElementById("fbNote");
+  if(noteBox) noteBox.onblur=()=>{ grabNote(); save(); };
 
   /* Swapping to an alternative. The swap is recorded on the session so the
      export can tell an authoring agent which substitutes she actually reaches
@@ -1623,14 +1930,16 @@ function renderSession(){
     const t=setInterval(()=>{ if(!timer.running){clearInterval(t); return;} rb.textContent="Rest "+fmtClock(timer.left); },250); };
 
   document.getElementById("back").onclick=()=>{
-    stopTimer();
+    stopTimer(); grabNote();
     if(step===0){
-      if(confirm("Quit this session? Nothing will be saved.")){ S.active=null; save(); render(); }
+      if(confirm("Quit this session? Nothing will be saved.")){ S.active=null; fbOpen=false; save(); render(); }
       return;
     }
-    step--; renderSession(); window.scrollTo(0,0);
+    step--; fbOpen=false; save(); renderSession(); window.scrollTo(0,0);
   };
-  document.getElementById("next").onclick=()=>{ stopTimer(); step++; renderSession(); window.scrollTo(0,0); };
+  document.getElementById("next").onclick=()=>{
+    stopTimer(); grabNote(); step++; fbOpen=false; save(); renderSession(); window.scrollTo(0,0);
+  };
 }
 
 function setRow(rec,i,tgt,isHold,perSide){
@@ -1683,8 +1992,16 @@ function renderFinish(){
     const A=S.active;
     A.notes=document.getElementById("notes").value.trim();
     A.feel=draft.feel||"good";
-    A.hurt=draft.hurt;
-    A.exercises=A.exercises.filter(r=>r.sets.some(v=>v!=null));
+    /* Per-exercise pain rolls up: flagging one exercise flags the session, so
+       the history warning and the next day's check-in greeting still fire. */
+    A.hurt=draft.hurt || A.exercises.some(r=>r.fb && r.fb.pain);
+    /* Keep exercises she didn't log. A skipped exercise is a signal — it may be
+       equipment she doesn't have, or one she's quietly avoiding — and dropping
+       it here would make it invisible to the export. */
+    A.exercises.forEach(r=>{
+      r.skipped = !r.sets.some(v=>v!=null);
+      if(r.fb && !r.fb.effort && !r.fb.fun && !r.fb.pain && !(r.fb.note||"").trim()) delete r.fb;
+    });
     adapt(A);
     S.sessions.push(A);
     S.active=null;
@@ -1770,6 +2087,16 @@ function renderProgress(){
         <div class="ic">${esc(b.ic)}</div><div class="nm">${esc(b.nm)}</div></div>`).join("")}
     </div>`:""}
   </div>
+
+  ${P.metrics.filter(m=>m.visible!==false && metricLog(m.id).length).map(m=>`
+  <div class="card">
+    <h2>${esc(m.label)}</h2>
+    <div style="margin-top:10px">
+      ${metricLog(m.id).slice(-8).reverse().map(x=>`<div class="mrow">
+        <span class="md">${fmtDate(x.date)}</span><span>${x.value}${esc(m.unit||"")}</span>
+      </div>`).join("")}
+    </div>
+  </div>`).join("")}
 
   <div class="card">
     <h2>Jump readiness</h2>
@@ -1894,8 +2221,29 @@ function renderSettings(){
     <p class="sub" style="margin:6px 0 12px">Used for the greeting on the Today screen.</p>
     <input id="pname" class="field" type="text" maxlength="24" autocomplete="off" placeholder="Your name"
       value="${esc(S.profile.name||"")}" aria-label="Skater name">
-    <button class="btn quiet wide" id="saveName" style="margin-top:10px">Save name</button>
+    <div class="lbl" style="margin-top:14px">Date of birth</div>
+    <p class="sub" style="margin:4px 0 8px">Only used so a program can match the work to your age. Stays on this device.</p>
+    <input id="pdob" class="field" type="date" max="${new Date().toISOString().slice(0,10)}"
+      value="${esc(S.profile.dob||"")}" aria-label="Date of birth">
+    ${ageYears()!=null?`<p class="sub" style="margin:8px 0 0">${ageYears()} years old.</p>`:""}
+    <button class="btn quiet wide" id="saveName" style="margin-top:10px">Save</button>
   </div>
+
+  ${P.metrics.length?`<div class="card">
+    <h2>Measurements</h2>
+    <p class="sub" style="margin:6px 0 4px">${esc(P.name)} tracks these to size the work. Log them when it's convenient — nothing here is a goal, and skipping one never blocks a session.</p>
+    ${P.metrics.filter(m=>m.visible!==false).map(m=>{
+      const last = latestMetric(m.id);
+      return `<div class="metric">
+        <div class="ml">${esc(m.label)}
+          <div class="mv">${last?`${last.value}${esc(m.unit||"")} · ${fmtDate(last.date)}`:"not logged yet"}</div>
+        </div>
+        <input type="number" inputmode="decimal" step="0.1" min="0" id="m_${esc(m.id)}"
+          placeholder="${esc(m.unit||"")}" aria-label="${esc(m.label)}">
+        <button class="btn sm" data-metric="${esc(m.id)}">Log</button>
+      </div>`;
+    }).join("")}
+  </div>`:""}
 
   <div class="card">
     <h2>Theme</h2>
@@ -1933,6 +2281,14 @@ function renderSettings(){
     <button class="btn wide" id="copy">Copy backup code</button>
     <button class="btn quiet wide" id="paste" style="margin-top:8px">Paste backup code</button>
     <p class="sub" style="margin:12px 0 0">${S.sessions.length} sessions stored.</p>
+  </div>
+
+  <div class="card">
+    <h2>Training report</h2>
+    <p class="sub" style="margin:6px 0 12px">Everything about how the training is actually going — what's stalled, what's too easy, what's boring, what hurt. Hand it to whoever builds your next program and they can pick up exactly where you are.</p>
+    <button class="btn wide" id="expReport">Copy training report</button>
+    <button class="btn ghost wide" id="expReportRaw" style="margin-top:8px">Save with full history</button>
+    <p class="sub" style="margin:12px 0 0">${S.sessions.filter(s=>s.programId===S.activeProgram).length} sessions on ${esc(P.name)}.</p>
   </div>
 
   <div class="card">
@@ -1974,6 +2330,17 @@ function renderSettings(){
   </div>`;
 
   view$().querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{ S.theme=b.dataset.th; save(); render(); });
+  const stamp = ()=>new Date().toISOString().slice(0,10);
+  document.getElementById("expReport").onclick=()=>{
+    const json = JSON.stringify(buildExport(), null, 2);
+    copyText(json, "Training report copied. Paste it to whoever is building your next program.");
+  };
+  document.getElementById("expReportRaw").onclick=()=>{
+    const json = JSON.stringify(buildExport({raw:true}), null, 2);
+    if(!downloadText("training-report-"+stamp()+".json", json))
+      copyText(json, "Training report copied.");
+  };
+
   document.getElementById("saveEquip").onclick=()=>{
     S.equipment = document.getElementById("equip").value.trim().slice(0,1000);
     save();
@@ -2076,12 +2443,24 @@ function renderSettings(){
 
   document.getElementById("paste").onclick=()=>importCode();
 
+  view$().querySelectorAll("[data-metric]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.metric, inp=document.getElementById("m_"+id);
+    const v=parseFloat(inp.value);
+    if(!isFinite(v) || v<=0){ inp.focus(); return; }
+    logMetric(id, Math.round(v*10)/10);
+    S.metricSnooze = 0;
+    save(); renderSettings();
+  });
+
   const pn=document.getElementById("pname");
   const saveName=()=>{
     S.profile.name = pn.value.trim();
+    const dob=document.getElementById("pdob");
+    S.profile.dob = dob && dob.value ? dob.value : null;
     save();
+    renderSettings();                       /* age line updates with the new DOB */
     const b=document.getElementById("saveName");
-    b.textContent="Saved"; setTimeout(()=>{ b.textContent="Save name"; },1200);
+    b.textContent="Saved"; setTimeout(()=>{ const c=document.getElementById("saveName"); if(c) c.textContent="Save"; },1200);
   };
   document.getElementById("saveName").onclick=saveName;
   pn.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); saveName(); } };

@@ -316,6 +316,63 @@ nothing. Only do that when it genuinely is a different program.
 
 ---
 
+## The training export
+
+This is the other half of the loop — what the app hands *back*. Settings →
+**Copy training report** produces it. It's the input for revising a program.
+
+```json
+{
+  "kind": "training-export", "exportVersion": 1, "targetSchema": 1,
+  "skater": { "ageYears": 11.9, "metrics": { "height": {…}, "bodyweight": {…} } },
+  "equipment": "jump rope, 12 and 18 inch boxes, 2lb ankle weights, slant board",
+  "program": { "id": "atg-jump", "version": "1.1.0", "phase": "power",
+               "sessionsInPhase": 8, "unlockMet": false },
+  "adherence": { "weeklyGoal": 3, "last8Weeks": [2,3,3,0,2,3,1,2], "painSessions": 2 },
+  "exercises": [ … ],
+  "signals": { … },
+  "checklist": [ … ], "jumps": [ … ], "sessionNotes": [ … ]
+}
+```
+
+Each entry in `exercises` carries `target`/`base`/`max`, `atCap`, `neverMoved`,
+`daysSinceIncrease`, `appearances`, `skipped`, `weeksInProgram`, `effortMix`,
+`funMix`, `painDates`, `swappedInFor` / `swappedAwayTo`, `recentSets` and any
+notes she wrote.
+
+### Signals
+
+Derived conclusions, precomputed so they can't be missed:
+
+| Signal | Means |
+|---|---|
+| `stalled` | Target hasn't risen in 21+ days over 5+ sessions. **The most actionable one.** |
+| `atCap` | Sitting at `max` — the ceiling needs raising, or the exercise needs replacing |
+| `consistentlyHard` | Rated hard repeatedly — likely prescribed too heavy |
+| `tooEasy` | Rated easy repeatedly and not at cap — under-prescribed |
+| `dullest` | Rated boring more than fun. **Variety, not intensity, is the fix** |
+| `painLinked` | Pain flagged against this exercise, with dates. Never re-prescribe without changing something |
+| `frequentlySkipped` | Skipped a third of the time or more — usually equipment she doesn't have, or avoidance |
+| `alternativePreferred` | She keeps swapping it out for the same substitute. **That substitute is the exercise she actually needs** |
+| `unchangedWeeks` | How long each exercise has been in the program, for judging when to rotate |
+
+Exercises with `step: 0` are marked `fixed` and are excluded from `stalled` and
+`atCap` — a warm-up was never going to progress.
+
+### Revising from an export
+
+1. Read `signals` first; they're the summary of everything below them.
+2. Keep the same `id`, bump `version`, set `revisionOf` and write a
+   `revisionNote` in plain language — she sees it on import.
+3. Address stalls by reducing, not pushing: lower the target with
+   `resetTarget`, or swap the movement.
+4. Anything in `painLinked` changes or comes out. Never leave it as it was.
+5. Prescribe only against what `equipment` says she has, and keep
+   `alternatives` on anything that needs kit.
+6. Rotate what's in `dullest` even when it's working physically.
+
+---
+
 ## Writing the copy
 
 The skater reads `why`, `how`, and `tips` alone, on a phone, usually right
