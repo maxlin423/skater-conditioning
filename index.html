@@ -173,6 +173,22 @@ textarea{width:100%;background:var(--surface2);border:1px solid var(--line);bord
 .prog .ps{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.4}
 .prog .pa{font-size:12px;color:var(--accent);font-weight:600;margin-top:6px}
 .paste{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;min-height:132px}
+
+/* ---------- equipment + day variants ---------- */
+.kit{background:var(--surface2);border-radius:10px;padding:9px 12px;font-size:13px;margin:10px 0 0;line-height:1.45}
+.kit .kl{color:var(--muted);font-weight:600;margin-right:5px}
+.kit .sub{font-size:11px}
+.days{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.days button{flex:1;min-width:96px;background:var(--surface2);border:1px solid transparent;border-radius:12px;
+  padding:10px 8px;text-align:center;font-weight:600;font-size:14px}
+.days button.on{border-color:var(--accent)}
+.daytag{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px}
+.swap{margin-top:12px}
+.swap .sl{font-size:13px;color:var(--muted);margin-bottom:6px}
+.swapopts{display:flex;gap:8px;flex-wrap:wrap}
+.swapopts button{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+.badge.prog-badge .nm{font-size:11px}
+.bgroup{font-size:12px;color:var(--muted);font-weight:600;margin:14px 0 0}
 .errs{margin:10px 0 0;padding:0;list-style:none}
 .errs li{background:var(--surface2);border-left:3px solid var(--accent);border-radius:8px;
   padding:9px 12px;font-size:13px;margin-top:6px;line-height:1.4}
@@ -1362,6 +1378,31 @@ function renderSetup(){
 }
 
 /* ---- TODAY ---- */
+/* Equipment params are free-form ({height_in:18}, {weight_lb:2}), so render them
+   generically: trailing _unit becomes a suffix, the rest is the label. */
+function paramText(params){
+  return Object.keys(params||{}).map(k=>{
+    const m = k.match(/^(.*)_([a-z]+)$/), v = params[k];
+    return m ? `${m[1].replace(/_/g," ")} ${v}${m[2]}` : `${k.replace(/_/g," ")} ${v}`;
+  }).join(", ");
+}
+function equipText(e){
+  if(!e || !e.equipment || !e.equipment.length) return "";
+  return e.equipment.map(q=>{
+    const p = paramText(q.params);
+    return esc(q.label) + (p?` (${esc(p)})`:"") + (q.optional?" <span class=\"sub\">optional</span>":"");
+  }).join(" · ");
+}
+function equipNote(e){
+  const t = equipText(e);
+  return t ? `<div class="kit"><span class="kl">You'll need</span> ${t}</div>` : "";
+}
+/* Single-set exercises are bookends — warm-ups and cool-downs. Nothing to rest
+   between, and they'd only clutter the program list. */
+function isBookend(e){ return !!e && e.sets <= 1; }
+
+function dayOf(ph, i){ return ph.days[Math.max(0, Math.min(ph.days.length-1, i||0))]; }
+
 function renderToday(){
   const done = sessionsThisWeek(), goal = weeklyGoal();
   const pct = Math.min(1, done/goal);
@@ -1393,8 +1434,17 @@ function renderToday(){
   </div>
 
   <div class="card">
-    <h2>${ph.name}</h2>
-    <p class="sub" style="margin:6px 0 14px">${ph.weeks} · ${ph.blurb}</p>
+    <h2>${esc(ph.name)}</h2>
+    <p class="sub" style="margin:6px 0 14px">${ph.weeks?esc(ph.weeks)+" · ":""}${esc(ph.blurb)}</p>
+    ${ph.days.length>1?`
+      <div class="lbl">${ph.rotate==="choose"?"Which one today?":"Up next"}</div>
+      ${ph.rotate==="choose"
+        ? `<div class="days">${ph.days.map((d,i)=>`
+            <button data-day="${i}" class="${i===(PS().dayIndex||0)?"on":""}">${esc(d.name)}</button>`).join("")}</div>`
+        : `<div class="daytag">${esc(dayOf(ph, PS().dayIndex).name)} — ${ph.days.length} day rotation</div>`}
+      ${dayOf(ph, PS().dayIndex).blurb?`<p class="sub" style="margin:8px 0 0">${esc(dayOf(ph, PS().dayIndex).blurb)}</p>`:""}
+      <div style="height:14px"></div>
+    `:""}
     <div class="row">
       <div>
         <div class="lbl">Heavy ice week</div>
@@ -1428,6 +1478,9 @@ function renderToday(){
   let heavy=false;
   const hb=document.getElementById("heavy");
   hb.onclick=()=>{ heavy=!heavy; hb.setAttribute("aria-checked",String(heavy)); };
+  view$().querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>{
+    PS().dayIndex = +b.dataset.day; save(); renderToday();
+  });
   document.getElementById("start").onclick=()=>{
     const ph = currentPhase(), di = PS().dayIndex||0;
     const plan = planFor(curPhase(), heavy, di);
@@ -1462,13 +1515,25 @@ function renderSession(){
   const tgt=targetFor(rec.id);
   const isHold=e.mode==="hold";
 
+  const alts = (e.alternatives||[]).filter(id=>EX[id]);
+
   view$().innerHTML=`
   <div class="stepbar">${A.exercises.map((_,i)=>`<span class="${i<step?"done":i===step?"now":""}"></span>`).join("")}</div>
   <div class="card">
-    <h2 class="exname">${e.name}</h2>
-    <p class="why">${e.why}</p>
-    <ol class="how">${e.how.map(h=>`<li>${h}</li>`).join("")}</ol>
-    <div class="tips"><p>Form notes</p><ul>${e.tips.map(t=>`<li>${t}</li>`).join("")}</ul></div>
+    <h2 class="exname">${esc(e.name)}</h2>
+    ${rec.swappedFrom&&EX[rec.swappedFrom]?`<div class="daytag">Swapped in for ${esc(EX[rec.swappedFrom].name)}</div>`:""}
+    <p class="why">${esc(e.why)}</p>
+    ${equipNote(e)}
+    <ol class="how">${e.how.map(h=>`<li>${esc(h)}</li>`).join("")}</ol>
+    <div class="tips"><p>Form notes</p><ul>${e.tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>
+
+    ${alts.length?`<div class="swap">
+      <div class="sl">${e.equipment&&e.equipment.length?"Don't have the kit today?":"Want a different movement?"}</div>
+      <div class="swapopts">
+        ${alts.map(id=>`<button data-swap="${esc(id)}">${esc(EX[id].name)}</button>`).join("")}
+        ${rec.swappedFrom?`<button data-swap="${esc(rec.swappedFrom)}">Back to ${esc(EX[rec.swappedFrom].name)}</button>`:""}
+      </div>
+    </div>`:""}
 
     <div class="target">
       <b>${isHold?fmtClock(tgt):tgt}</b>
@@ -1485,7 +1550,7 @@ function renderSession(){
 
     <div class="sets">${Array.from({length:nSets},(_,i)=>setRow(rec,i,tgt,isHold,e.perSide)).join("")}</div>
 
-    ${rec.id==="warmup"||rec.id==="cooldown"?"":`
+    ${isBookend(e)?"":`
     <div class="timer" style="margin-top:14px">
       <div class="sub" style="margin-bottom:8px">Rest between sets</div>
       <button class="btn sm quiet" id="rest">Rest 60s</button>
@@ -1496,6 +1561,24 @@ function renderSession(){
     <button class="btn ghost" id="back">${step===0?"Quit":"Back"}</button>
     <button class="btn" id="next">${step===total-1?"Finish up":"Next"}</button>
   </div>`;
+
+  /* Swapping to an alternative. The swap is recorded on the session so the
+     export can tell an authoring agent which substitutes she actually reaches
+     for — an alternative used every week is really the exercise she needs. */
+  view$().querySelectorAll("[data-swap]").forEach(btn=>{
+    btn.onclick=()=>{
+      const to = btn.dataset.swap;
+      if(!EX[to]) return;
+      const logged = rec.sets.some(v=>v!=null);
+      if(logged && !confirm("Swap to "+EX[to].name+"? The sets you've logged for this exercise will be cleared.")) return;
+      stopTimer();
+      const from = rec.swappedFrom || rec.id;
+      rec.swappedFrom = (to === from) ? null : from;
+      rec.id = to;
+      rec.sets = []; delete rec.balance;
+      save(); renderSession(); window.scrollTo(0,0);
+    };
+  });
 
   // set rows
   view$().querySelectorAll("[data-set]").forEach(btn=>{
@@ -1619,32 +1702,44 @@ function renderFinish(){
 }
 
 /* ---- PROGRAM ---- */
+function planRows(plan){
+  return plan.filter(id=>EX[id] && !isBookend(EX[id])).map(id=>{
+    const e=EX[id], t=targetFor(id);
+    const kit = (e.equipment||[]).map(q=>esc(q.label)).join(", ");
+    return `<button class="exrow" data-ex="${esc(id)}">
+      <b>${esc(e.name)}${kit?`<span class="daytag" style="margin:2px 0 0">${kit}</span>`:""}</b>
+      <span class="t">${e.mode==="hold"?fmtClock(t):t+"×"+e.sets}</span>
+    </button>`;
+  }).join("");
+}
 function renderProgram(){
   view$().innerHTML = PHASES.map(p=>`
     <div class="phase-h">
-      <h2>${p.name}</h2>
-      <span class="pill ${p.n===curPhase()?"live":""}">${p.n===curPhase()?"Current":p.weeks}</span>
+      <h2>${esc(p.name)}</h2>
+      <span class="pill ${p.n===curPhase()?"live":""}">${p.n===curPhase()?"Current":esc(p.weeks)}</span>
     </div>
-    <p class="sub" style="margin:0 0 12px">${p.blurb}</p>
-    ${p.plan.filter(id=>id!=="warmup"&&id!=="cooldown").map(id=>{
-      const e=EX[id],t=targetFor(id);
-      return `<button class="exrow" data-ex="${id}">
-        <b>${e.name}</b>
-        <span class="t">${e.mode==="hold"?fmtClock(t):t+"×"+e.sets}</span>
-      </button>`;
-    }).join("")}
+    <p class="sub" style="margin:0 0 12px">${esc(p.blurb)}</p>
+    ${p.days.length>1
+      ? p.days.map((d,i)=>`
+          <div class="daytag" style="margin:14px 0 6px">${esc(d.name)}${p.n===curPhase()&&i===(PS().dayIndex||0)?" · up next":""}</div>
+          ${d.blurb?`<p class="sub" style="margin:0 0 8px">${esc(d.blurb)}</p>`:""}
+          ${planRows(d.plan)}`).join("")
+      : planRows(p.days[0].plan)}
   `).join("");
   view$().querySelectorAll("[data-ex]").forEach(b=>b.onclick=()=>showEx(b.dataset.ex));
 }
 function showEx(id){
   const e=EX[id];
+  const alts=(e.alternatives||[]).filter(a=>EX[a]);
   view$().innerHTML=`
   <button class="btn ghost sm" id="bk" style="margin-bottom:14px">← Program</button>
   <div class="card">
-    <h2 class="exname">${e.name}</h2>
-    <p class="why">${e.why}</p>
-    <ol class="how">${e.how.map(h=>`<li>${h}</li>`).join("")}</ol>
-    <div class="tips"><p>Form notes</p><ul>${e.tips.map(t=>`<li>${t}</li>`).join("")}</ul></div>
+    <h2 class="exname">${esc(e.name)}</h2>
+    <p class="why">${esc(e.why)}</p>
+    ${equipNote(e)}
+    <ol class="how">${e.how.map(h=>`<li>${esc(h)}</li>`).join("")}</ol>
+    <div class="tips"><p>Form notes</p><ul>${e.tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>
+    ${alts.length?`<div class="kit"><span class="kl">Or instead</span> ${alts.map(a=>esc(EX[a].name)).join(" · ")}</div>`:""}
     <div class="target"><b>${e.mode==="hold"?fmtClock(targetFor(id)):targetFor(id)}</b>
       <span>${e.mode==="hold"?"per hold":"reps"}${e.perSide?" · each side":""} · ${e.sets} sets · current target</span></div>
   </div>`;
@@ -1663,10 +1758,17 @@ function renderProgress(){
 
   <div class="card">
     <h2>Badges</h2>
+    ${P.badges.length?`<p class="bgroup" style="margin-top:10px">Every program</p>`:""}
     <div class="badges" style="margin-top:12px">
       ${BADGES.map(b=>`<div class="badge ${S.badges.includes(b.id)?"got":""}">
         <div class="ic">${b.ic}</div><div class="nm">${b.nm}</div></div>`).join("")}
     </div>
+    ${P.badges.length?`
+    <p class="bgroup">${esc(P.name)}</p>
+    <div class="badges" style="margin-top:12px">
+      ${P.badges.map(b=>`<div class="badge prog-badge ${S.badges.includes(S.activeProgram+":"+b.id)?"got":""}">
+        <div class="ic">${esc(b.ic)}</div><div class="nm">${esc(b.nm)}</div></div>`).join("")}
+    </div>`:""}
   </div>
 
   <div class="card">
@@ -1834,6 +1936,13 @@ function renderSettings(){
   </div>
 
   <div class="card">
+    <h2>What you've got to train with</h2>
+    <p class="sub" style="margin:6px 0 4px">Anything you can use — a jump rope, boxes and their heights, ankle weights, a slant board. Write it however you like. It goes to whoever builds your next program so they only prescribe things you actually have.</p>
+    <textarea id="equip" placeholder="e.g. jump rope, 12 and 18 inch boxes, 2lb and 5lb ankle weights, slant board" aria-label="Equipment available">${esc(S.equipment||"")}</textarea>
+    <button class="btn quiet wide" id="saveEquip" style="margin-top:8px">Save</button>
+  </div>
+
+  <div class="card">
     <h2>Training program</h2>
     <p class="sub" style="margin:6px 0 4px">Switching keeps everything — your sessions, badges and rotation meter carry across every program. Each program remembers its own phase and targets.</p>
     ${progList()}
@@ -1865,6 +1974,13 @@ function renderSettings(){
   </div>`;
 
   view$().querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{ S.theme=b.dataset.th; save(); render(); });
+  document.getElementById("saveEquip").onclick=()=>{
+    S.equipment = document.getElementById("equip").value.trim().slice(0,1000);
+    save();
+    const b=document.getElementById("saveEquip");
+    b.textContent="Saved"; setTimeout(()=>{ b.textContent="Save"; },1200);
+  };
+
   view$().querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>switchProgram(b.dataset.use));
   view$().querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{
     const id = b.dataset.exp, json = programJSON(id);
