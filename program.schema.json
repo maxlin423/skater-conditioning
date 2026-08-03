@@ -1,0 +1,475 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/skater-conditioning/program.schema.json",
+  "title": "Off-Ice Training Program",
+  "description": "A portable training program definition. Authored by hand or by a program-authoring agent, imported into the off-ice training app as JSON text. See PROGRAM_FORMAT.md for prose guidance and a worked example.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "version", "coreLibrary", "disclaimer", "phases"],
+  "additionalProperties": false,
+
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "description": "Format version. Only 1 exists."
+    },
+    "id": {
+      "$ref": "#/$defs/slug",
+      "description": "Stable identifier. A revision of an existing program MUST reuse its id so the app carries progress forward instead of installing a second program."
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver. Bump on every revision. The app uses this to tell a revision from a re-import."
+    },
+    "revisionOf": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Version this revises. Set by the authoring agent in revise mode."
+    },
+    "revisionNote": {
+      "type": "string",
+      "maxLength": 600,
+      "description": "Plain-language summary of what changed and why. Shown to the skater on import."
+    },
+    "coreLibrary": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Version of the app's built-in exercise library that core: references resolve against. Pinned at install; app updates never change an installed program."
+    },
+    "author": { "type": "string", "maxLength": 80 },
+    "summary": { "type": "string", "maxLength": 400 },
+    "basedOn": {
+      "type": "array",
+      "maxItems": 12,
+      "items": { "type": "string", "maxLength": 200 },
+      "description": "Sources or methods the program draws on, e.g. 'Ben Patrick / Knees Over Toes'. Free text, for provenance."
+    },
+
+    "disclaimer": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 800,
+      "description": "REQUIRED. Shown on first activation. Must make clear this is general training guidance, not medical or coaching advice, and that volume should be cleared with a coach or trainer."
+    },
+
+    "weeklyGoal": {
+      "type": "integer", "minimum": 1, "maximum": 7, "default": 3,
+      "description": "Suggested sessions per week. The skater can override it in Settings."
+    },
+
+    "audience": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minAge": { "type": "number", "minimum": 4, "maximum": 100 },
+        "maxAge": { "type": "number", "minimum": 4, "maximum": 100 },
+        "notes": { "type": "string", "maxLength": 300 }
+      }
+    },
+
+    "equipmentRequired": {
+      "type": "array",
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/equipment" },
+      "description": "Optional roll-up of equipment used anywhere in the program, so the import screen can show it at a glance. Derivable from exercises; provided for convenience."
+    },
+
+    "metrics": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/metric" },
+      "description": "Body metrics this program wants tracked over time. Fed to volumeScaling and included in the export the authoring agent reads."
+    },
+
+    "progression": { "$ref": "#/$defs/progressionStrategy" },
+    "unlock": { "$ref": "#/$defs/unlockStrategy" },
+    "volumeScaling": { "$ref": "#/$defs/volumeStrategy" },
+
+    "exercises": {
+      "type": "object",
+      "maxProperties": 60,
+      "description": "Exercises this program defines itself. Keys are local ids (no core: prefix).",
+      "propertyNames": { "$ref": "#/$defs/localId" },
+      "additionalProperties": { "$ref": "#/$defs/exercise" }
+    },
+
+    "overrides": {
+      "type": "object",
+      "maxProperties": 60,
+      "description": "Field-level changes to core library exercises. Keys are core: references. Only the listed fields change; everything else comes from the pinned library.",
+      "propertyNames": { "$ref": "#/$defs/coreRef" },
+      "additionalProperties": { "$ref": "#/$defs/exerciseOverride" }
+    },
+
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/phase" }
+    },
+
+    "checklist": {
+      "type": "array",
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "required": ["id", "t"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/localId" },
+          "t": { "type": "string", "minLength": 1, "maxLength": 160 }
+        }
+      },
+      "description": "Readiness criteria shown in Progress. Replaces the app default when present."
+    },
+
+    "badges": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/badge" },
+      "description": "Program-specific badges. Namespaced as programId:badgeId at award time and evaluated only against this program's sessions. App career badges are separate and always present."
+    }
+  },
+
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,48}$",
+      "description": "Lowercase, digits and hyphens."
+    },
+    "localId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,48}$"
+    },
+    "coreRef": {
+      "type": "string",
+      "pattern": "^core:[A-Za-z0-9][A-Za-z0-9_-]{0,48}$"
+    },
+    "exerciseRef": {
+      "type": "string",
+      "pattern": "^(core:)?[A-Za-z0-9][A-Za-z0-9_-]{0,48}$",
+      "description": "Either core:someId (built-in library) or a key of this program's exercises object."
+    },
+
+    "equipment": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "description": "Open vocabulary. There is no fixed list of equipment ids — use whatever describes the item. The app renders the label and params; it never validates against an enum.",
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "params": {
+          "type": "object",
+          "maxProperties": 8,
+          "description": "Arbitrary setup detail, e.g. {\"height_in\": 18} or {\"weight_lb\": 2}. Rendered as-is next to the label.",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean"]
+          }
+        },
+        "optional": {
+          "type": "boolean", "default": false,
+          "description": "True if the exercise works without it and the equipment only adds load or variety."
+        }
+      }
+    },
+
+    "metric": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "unit": { "type": "string", "maxLength": 12 },
+        "cadence": {
+          "enum": ["weekly", "monthly", "quarterly"],
+          "default": "monthly",
+          "description": "How often the app invites an entry. It invites; it never nags or blocks a session."
+        },
+        "visible": {
+          "type": "boolean", "default": true,
+          "description": "False keeps the metric out of the skater's own views while still recording it."
+        }
+      }
+    },
+
+    "exercise": {
+      "type": "object",
+      "required": ["name", "mode", "sets", "base"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "mode": {
+          "enum": ["reps", "hold"],
+          "description": "reps counts repetitions; hold counts seconds."
+        },
+        "sets": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "base": {
+          "type": "integer", "minimum": 1,
+          "description": "Starting target, and the floor progression can never go below."
+        },
+        "step": {
+          "type": "integer", "minimum": 0, "default": 0,
+          "description": "How much a target moves per progression event. 0 means fixed (warm-ups, cool-downs)."
+        },
+        "max": {
+          "type": "integer", "minimum": 1,
+          "description": "Ceiling for progression. Must be >= base."
+        },
+        "perSide": { "type": "boolean", "default": false },
+        "jump": {
+          "type": "boolean", "default": false,
+          "description": "Plyometric. Skipped entirely during a heavy ice week."
+        },
+        "balanceScore": {
+          "type": "boolean", "default": false,
+          "description": "Hold exercises only. Attaches a gyroscope steadiness score when measure mode is on."
+        },
+        "why": { "type": "string", "maxLength": 400 },
+        "how": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 240 } },
+        "tips": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 240 } },
+        "equipment": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/equipment" } },
+        "alternatives": {
+          "type": "array", "maxItems": 4,
+          "items": { "$ref": "#/$defs/exerciseRef" },
+          "description": "Substitutes when the equipment isn't available. Strongly recommended on any exercise with non-optional equipment. The skater's swap is recorded and exported."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "reps" } }, "required": ["mode"] },
+          "then": {
+            "properties": {
+              "base": { "maximum": 100 },
+              "max": { "maximum": 100 },
+              "step": { "maximum": 20 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "hold" } }, "required": ["mode"] },
+          "then": {
+            "properties": {
+              "base": { "maximum": 600 },
+              "max": { "maximum": 600 },
+              "step": { "maximum": 60 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "jump": { "const": true } }, "required": ["jump"] },
+          "then": {
+            "properties": {
+              "base": { "maximum": 20 },
+              "max": { "maximum": 20 },
+              "sets": { "maximum": 4 }
+            },
+            "description": "Plyometric volume is capped hard. Quality of landing degrades fast past this."
+          }
+        }
+      ]
+    },
+
+    "exerciseOverride": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "description": "Any subset of exercise fields except name and mode, which stay fixed to the library definition so the app's UI assumptions hold.",
+      "properties": {
+        "sets": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "base": { "type": "integer", "minimum": 1, "maximum": 600 },
+        "step": { "type": "integer", "minimum": 0, "maximum": 60 },
+        "max": { "type": "integer", "minimum": 1, "maximum": 600 },
+        "perSide": { "type": "boolean" },
+        "jump": { "type": "boolean" },
+        "balanceScore": { "type": "boolean" },
+        "why": { "type": "string", "maxLength": 400 },
+        "how": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 240 } },
+        "tips": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 240 } },
+        "equipment": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/equipment" } },
+        "alternatives": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/exerciseRef" } }
+      }
+    },
+
+    "phase": {
+      "type": "object",
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "weeks": {
+          "type": "string", "maxLength": 30,
+          "description": "Display label only, e.g. 'Weeks 1-3'. Carries no logic."
+        },
+        "blurb": { "type": "string", "maxLength": 400 },
+        "unlockAfter": {
+          "type": "integer", "minimum": 0, "maximum": 200,
+          "description": "Sessions logged in this phase before the next unlocks. Overrides the program-level unlock strategy params for this phase. Advance is always manual — this only unlocks the button."
+        },
+        "plan": {
+          "type": "array", "minItems": 1, "maxItems": 12,
+          "items": { "$ref": "#/$defs/exerciseRef" },
+          "description": "Shorthand for a single-day phase. Equivalent to days:[{id:'main',name:'Main',plan:[...]}]. Use this OR days, not both."
+        },
+        "days": {
+          "type": "array", "minItems": 1, "maxItems": 7,
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "plan"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/localId" },
+              "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "blurb": { "type": "string", "maxLength": 300 },
+              "plan": {
+                "type": "array", "minItems": 1, "maxItems": 12,
+                "items": { "$ref": "#/$defs/exerciseRef" }
+              }
+            }
+          }
+        },
+        "rotate": {
+          "enum": ["sequential", "choose"],
+          "default": "sequential",
+          "description": "sequential advances to the next day each session; choose lets the skater pick. Ignored for single-day phases."
+        }
+      },
+      "oneOf": [
+        { "required": ["plan"], "not": { "required": ["days"] } },
+        { "required": ["days"], "not": { "required": ["plan"] } }
+      ]
+    },
+
+    "progressionStrategy": {
+      "type": "object",
+      "required": ["strategy"],
+      "additionalProperties": false,
+      "description": "How per-exercise targets move over time. Named strategies only — a program cannot carry executable code.",
+      "properties": {
+        "strategy": {
+          "enum": ["linear-step", "double-progression", "hold-until-clean", "none"]
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shortfall": {
+              "type": "number", "minimum": 0.1, "maximum": 1,
+              "default": 0.7,
+              "description": "linear-step: a set below this fraction of target counts as falling well short and eases the target back."
+            },
+            "cleanSessions": {
+              "type": "integer", "minimum": 1, "maximum": 10, "default": 2,
+              "description": "hold-until-clean: consecutive clean sessions required before a target rises."
+            },
+            "repRange": {
+              "type": "array", "minItems": 2, "maxItems": 2,
+              "items": { "type": "integer", "minimum": 1, "maximum": 100 },
+              "description": "double-progression: [low, high]. Reps climb to high, then reset to low and the load or difficulty steps up."
+            }
+          }
+        }
+      }
+    },
+
+    "unlockStrategy": {
+      "type": "object",
+      "required": ["strategy"],
+      "additionalProperties": false,
+      "description": "When the next phase becomes available. Advancing is always the skater's manual choice.",
+      "properties": {
+        "strategy": { "enum": ["sessions-in-phase", "weeks-in-phase", "manual"] },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "n": { "type": "integer", "minimum": 1, "maximum": 200 }
+          }
+        }
+      }
+    },
+
+    "volumeStrategy": {
+      "type": "object",
+      "required": ["strategy"],
+      "additionalProperties": false,
+      "description": "Optional scaling of prescribed volume from tracked body metrics and age.",
+      "properties": {
+        "strategy": { "enum": ["none", "age-banded", "bodyweight-scaled"] },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bands": {
+              "type": "array", "maxItems": 8,
+              "description": "age-banded: applies the first matching band.",
+              "items": {
+                "type": "object",
+                "required": ["setsMultiplier"],
+                "additionalProperties": false,
+                "properties": {
+                  "maxAge": { "type": "number", "minimum": 4, "maximum": 100 },
+                  "minAge": { "type": "number", "minimum": 4, "maximum": 100 },
+                  "setsMultiplier": { "type": "number", "minimum": 0.5, "maximum": 1.5 },
+                  "jumpRepsMax": { "type": "integer", "minimum": 1, "maximum": 20 }
+                }
+              }
+            },
+            "metric": {
+              "$ref": "#/$defs/localId",
+              "description": "bodyweight-scaled: which metric id drives the scaling."
+            },
+            "referenceValue": { "type": "number", "exclusiveMinimum": 0 },
+            "exponent": { "type": "number", "minimum": -1, "maximum": 1, "default": 0 }
+          }
+        }
+      }
+    },
+
+    "badge": {
+      "type": "object",
+      "required": ["id", "nm", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "ic": { "type": "string", "maxLength": 4, "description": "A single glyph or emoji." },
+        "nm": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "rule": {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "description": "Declarative condition. Evaluated by the app against this program's sessions only.",
+          "properties": {
+            "type": {
+              "enum": [
+                "sessionCount",
+                "weeksLanded",
+                "phaseReached",
+                "checklistComplete",
+                "exerciseTarget",
+                "exerciseSessions",
+                "jumpCount",
+                "jumpImprovement",
+                "painFreeSessions"
+              ]
+            },
+            "params": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "n": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                "ex": { "$ref": "#/$defs/exerciseRef" },
+                "value": { "type": "integer", "minimum": 1, "maximum": 600 },
+                "phase": { "$ref": "#/$defs/localId" },
+                "cm": { "type": "number", "minimum": 1, "maximum": 200 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

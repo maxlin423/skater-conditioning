@@ -201,120 +201,149 @@ nav button[aria-current="true"]{color:var(--accent)}
 <script>
 "use strict";
 
-/* ============ PROGRAM DATA ============ */
-const EX = {
-  warmup:{name:"Warm-up",phase:1,mode:"hold",sets:1,base:180,step:0,max:180,perSide:false,
+/* ============ CORE EXERCISE LIBRARY ============ */
+/* Versioned. A program pins the version it was authored against, so shipping a
+   new library version can never change an already-installed program.
+   Never edit a published version in place — add CORE_LIB[2] and leave [1] alone. */
+const CORE_LIB = {};
+const CORE_LIB_LATEST = 1;
+
+CORE_LIB[1] = {
+  warmup:{name:"Warm-up",mode:"hold",sets:1,base:180,step:0,max:180,perSide:false,
     why:"Gets blood into the legs so nothing is cold when the real work starts.",
     how:["March in place, lifting knees, for about a minute.","Arm circles: 10 forward, 10 back.","6 slow walking lunges on each leg.","Roll each ankle 10 times in both directions."],
     tips:["Easy pace. This is not the workout.","If you just came off the ice you can shorten this."]},
 
-  tib:{name:"Tibialis raises",phase:1,mode:"reps",sets:3,base:15,step:2,max:30,perSide:true,
+  tib:{name:"Tibialis raises",mode:"reps",sets:3,base:15,step:2,max:30,perSide:true,
     why:"Builds the muscle down the front of your shin. It controls your ankle when you set the toe pick and when you land.",
     how:["Sit on a chair with both feet flat on the floor.","Keeping your heel down, pull your toes up toward your shin as far as they go.","Hold the top for 2 seconds.","Lower slowly, over about 3 seconds."],
     tips:["Slow on the way down is where the strength comes from.","Burning in the shin is the point. Sharp pain is not.","To make it harder, rest a shoe or small bottle across your toes."]},
 
-  calfStraight:{name:"Calf raises, straight leg",phase:1,mode:"reps",sets:3,base:10,step:2,max:25,perSide:true,
+  calfStraight:{name:"Calf raises, straight leg",mode:"reps",sets:3,base:10,step:2,max:25,perSide:true,
     why:"The upper calf is what pushes you off the ice. Single leg, because that is how you jump.",
     how:["Stand near a wall or barre, fingertips touching for balance only.","Lift one foot slightly off the floor.","Rise onto the toes of the standing foot over 2 seconds.","Hold the top for 1 second, lower over 2 seconds."],
     tips:["Fingertips are for balance, not for lifting you.","Keep the ankle straight. No rolling in or out.","Full height every rep. Half reps do half the work."]},
 
-  calfBent:{name:"Calf raises, bent knee",phase:1,mode:"reps",sets:3,base:12,step:2,max:25,perSide:true,
+  calfBent:{name:"Calf raises, bent knee",mode:"reps",sets:3,base:12,step:2,max:25,perSide:true,
     why:"Reaches the deeper calf muscle underneath. This is the one that absorbs landings.",
     how:["Sit with your knee bent at about 90 degrees, foot flat.","Press through the ball of your foot to lift your heel.","Hold at the top, then lower under control."],
     tips:["It should feel different and deeper than the straight-leg version.","Add weight by resting something on your thigh, close to the knee."]},
 
-  bridge:{name:"Single-leg glute bridge",phase:1,mode:"reps",sets:3,base:10,step:2,max:20,perSide:true,
+  bridge:{name:"Single-leg glute bridge",mode:"reps",sets:3,base:10,step:2,max:20,perSide:true,
     why:"Wakes up the glutes. Jump height comes from the hips as much as the ankles.",
     how:["Lie on your back, knees bent, feet flat.","Lift one foot a few inches off the floor.","Push through the heel of the grounded foot and lift your hips.","Squeeze at the top, lower slowly."],
     tips:["Keep your hips level. Don't let one side drop.","Squeeze the glute, don't arch your lower back."]},
 
-  wallsit:{name:"Wall sit",phase:1,mode:"hold",sets:3,base:25,step:5,max:60,perSide:false,
+  wallsit:{name:"Wall sit",mode:"hold",sets:3,base:25,step:5,max:60,perSide:false,
     why:"Builds the quad strength that absorbs a landing instead of collapsing into it.",
     how:["Stand with your back flat against a wall, feet about two steps out.","Slide down until your knees are bent near 90 degrees.","Hold. Keep your whole back on the wall."],
     tips:["Knees point over your toes, not caved inward.","Keep breathing. Don't hold your breath.","If your knees complain, slide less deep."]},
 
-  split:{name:"ATG split squat",phase:2,mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
+  split:{name:"ATG split squat",mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
     why:"Loads one leg deeply through a full range. This is the shape your leg makes right before a jump.",
     how:["Stand in a split stance, one foot well forward.","Bend the front knee and lower until the back knee is near the floor.","Let the front knee travel forward over the toes.","Push through the front foot to stand."],
     tips:["Go only as deep as you can control today. Depth builds over weeks.","Back heel comes up, that's fine.","Chest stays tall."]},
 
-  backwalk:{name:"Backward walks",phase:2,mode:"reps",sets:3,base:12,step:2,max:24,perSide:false,
+  backwalk:{name:"Backward walks",mode:"reps",sets:3,base:12,step:2,max:24,perSide:false,
     why:"Loads the front of the shin and knee the way nothing else does. This is the backbone of the whole method.",
     how:["Find a clear stretch of floor or hallway.","Walk backward with deliberate, controlled steps.","Land on the ball of the foot and roll back.","Count steps, not distance."],
     tips:["Lean slightly forward from the ankles, not the waist.","Slow beats fast here.","Uphill outside, or dragging something light, makes it harder."]},
 
-  minijump:{name:"Mini jumps",phase:2,mode:"reps",sets:3,base:6,step:1,max:12,jump:true,perSide:false,
+  minijump:{name:"Mini jumps",mode:"reps",sets:3,base:6,step:1,max:12,jump:true,perSide:false,
     why:"Trains explosive push-off and, more importantly, a quiet controlled landing.",
     how:["Stand with feet hip-width, small bend in the knees.","Jump straight up.","Land softly, absorb into a bend, and stop.","Pause a full second before the next one."],
     tips:["This is not bouncing. Every rep starts from a stop.","Listen. Quiet landing means good landing.","If landings get loud or sloppy, the set is over."]},
 
-  balance:{name:"Single-leg balance with arms",phase:2,mode:"hold",sets:3,base:25,step:5,max:50,perSide:true,balanceScore:true,
+  balance:{name:"Single-leg balance with arms",mode:"hold",sets:3,base:25,step:5,max:50,perSide:true,balanceScore:true,
     why:"Trains the ankle to hold steady while your upper body moves. That is rotation control.",
     how:["Stand on one leg, other knee lifted toward hip height.","Hold the position while your arms move through your jump pull-in.","Keep the standing ankle quiet."],
     tips:["The standing foot should not be sliding around.","Eyes on a fixed point helps.","Harder version: do it on a pillow or folded towel."]},
 
-  hops:{name:"Forward hops",phase:3,mode:"reps",sets:3,base:8,step:1,max:14,jump:true,perSide:true,
+  hops:{name:"Forward hops",mode:"reps",sets:3,base:8,step:1,max:14,jump:true,perSide:true,
     why:"Single-leg spring, forward. Closest off-ice match to an axel takeoff.",
     how:["Stand on one leg.","Hop forward a short distance.","Land on the same leg and hold the landing for a second.","Reset and repeat."],
     tips:["Distance is not the goal. Sticking the landing is.","If you can't hold the landing, hop shorter."]},
 
-  rotate:{name:"Standing rotations",phase:3,mode:"reps",sets:3,base:10,step:2,max:20,perSide:true,
+  rotate:{name:"Standing rotations",mode:"reps",sets:3,base:10,step:2,max:20,perSide:true,
     why:"Core control through rotation, on one leg, like every jump you do.",
     how:["Stand on one leg, arms crossed over your chest.","Rotate your upper body toward one side, slow and controlled.","Return to center. Keep the hips facing forward."],
     tips:["Hips stay square. Only the upper body turns.","Slow. This is control work, not speed work."]},
 
-  lateral:{name:"Lateral lunges",phase:3,mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
+  lateral:{name:"Lateral lunges",mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
     why:"Builds sideways strength for the landings that don't come down perfectly on-axis.",
     how:["Step wide to one side.","Bend that knee and sit back into the hip, keeping the other leg straight.","Push back to standing."],
     tips:["Toes point forward on both feet.","Chest up, weight into the heel of the bent leg."]},
 
-  stepdown:{name:"Controlled step-downs",phase:3,mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
+  stepdown:{name:"Controlled step-downs",mode:"reps",sets:3,base:8,step:1,max:15,perSide:true,
     why:"Teaches the leg to lower your whole bodyweight slowly. That is exactly what a landing is.",
     how:["Stand on a low step, about 4 to 6 inches.","Standing on one leg, lower the other foot slowly toward the floor.","Tap the floor lightly, then press back up."],
     tips:["Take 3 seconds on the way down.","A loud tap means you dropped. Go slower or use a lower step.","Keep the standing knee tracking over the toes."]},
 
-  cooldown:{name:"Cool-down",phase:1,mode:"hold",sets:1,base:120,step:0,max:120,perSide:false,
+  cooldown:{name:"Cool-down",mode:"hold",sets:1,base:120,step:0,max:120,perSide:false,
     why:"Lets everything settle so tomorrow's skating doesn't start stiff.",
     how:["Quad stretch, 20 seconds each leg.","Calf stretch against a wall, 20 seconds each leg.","Hip flexor stretch in a half-kneel, 20 seconds each side.","Walk easy for a minute."],
     tips:["Stretch to gentle tension, never to pain."]}
 };
 
-const PHASES = [
-  {n:1,name:"Foundation",weeks:"Weeks 1–3",
-   blurb:"Ankles, calves, glutes, quads. Nothing explosive yet. This is the base everything else sits on.",
-   plan:["warmup","tib","calfStraight","calfBent","bridge","wallsit","cooldown"]},
-  {n:2,name:"Power",weeks:"Weeks 4–6",
-   blurb:"The foundation work stays, and explosive movement gets added on top of it.",
-   plan:["warmup","tib","calfStraight","split","backwalk","minijump","balance","cooldown"]},
-  {n:3,name:"Jump-specific",weeks:"Weeks 7+",
-   blurb:"Single-leg spring, rotation control, and landing mechanics for each jump type.",
-   plan:["warmup","calfStraight","split","hops","rotate","lateral","stepdown","balance","cooldown"]}
-];
+/* ============ BUILT-IN PROGRAM ============ */
+/* Conforms to program.schema.json. This is the same program the app has always
+   shipped, expressed in the portable format so it round-trips through
+   export/import like any authored program. */
+const BUILTIN_ATG = {
+  schemaVersion:1,
+  id:"atg-jump",
+  name:"Off-Ice Jump Training",
+  version:"1.0.0",
+  coreLibrary:1,
+  author:"Built in",
+  summary:"Three-phase off-ice progression for a jumping skater. Ankle and tibialis work as the foundation, then power, then jump-specific spring and landing mechanics.",
+  basedOn:["Ben Patrick / Knees Over Toes — gradual loading, full range of motion, knees tracking over toes"],
+  disclaimer:"This is general training guidance, not medical or coaching advice. Volume and jump work should be cleared with a skating coach or a trainer who works with young athletes — especially during a growth spurt.",
+  weeklyGoal:3,
+  progression:{strategy:"linear-step",params:{shortfall:0.7}},
+  unlock:{strategy:"sessions-in-phase",params:{n:9}},
+  phases:[
+    {id:"foundation",name:"Foundation",weeks:"Weeks 1–3",unlockAfter:9,
+     blurb:"Ankles, calves, glutes, quads. Nothing explosive yet. This is the base everything else sits on.",
+     plan:["core:warmup","core:tib","core:calfStraight","core:calfBent","core:bridge","core:wallsit","core:cooldown"]},
+    {id:"power",name:"Power",weeks:"Weeks 4–6",unlockAfter:9,
+     blurb:"The foundation work stays, and explosive movement gets added on top of it.",
+     plan:["core:warmup","core:tib","core:calfStraight","core:split","core:backwalk","core:minijump","core:balance","core:cooldown"]},
+    {id:"jump",name:"Jump-specific",weeks:"Weeks 7+",
+     blurb:"Single-leg spring, rotation control, and landing mechanics for each jump type.",
+     plan:["core:warmup","core:calfStraight","core:split","core:hops","core:rotate","core:lateral","core:stepdown","core:balance","core:cooldown"]}
+  ],
+  checklist:[
+    {id:"c1",t:"20 single-leg calf raises on each leg, full height"},
+    {id:"c2",t:"45-second wall sit without sliding down"},
+    {id:"c3",t:"10 split squats each leg with the knee tracking over the toes"},
+    {id:"c4",t:"10 mini jumps in a row with quiet landings"},
+    {id:"c5",t:"40-second single-leg balance, ankle steady"},
+    {id:"c6",t:"8 step-downs each leg, 3 seconds down, no drop"},
+    {id:"c7",t:"No ankle or knee pain during any of it"}
+  ],
+  badges:[]
+};
 
-const CHECKLIST = [
-  {id:"c1",t:"20 single-leg calf raises on each leg, full height"},
-  {id:"c2",t:"45-second wall sit without sliding down"},
-  {id:"c3",t:"10 split squats each leg with the knee tracking over the toes"},
-  {id:"c4",t:"10 mini jumps in a row with quiet landings"},
-  {id:"c5",t:"40-second single-leg balance, ankle steady"},
-  {id:"c6",t:"8 step-downs each leg, 3 seconds down, no drop"},
-  {id:"c7",t:"No ankle or knee pain during any of it"}
-];
+const BUILTIN_PROGRAMS = [BUILTIN_ATG];
 
+/* App career badges. These count across every program she ever runs — switching
+   programs must never cost her one. Program-defined badges are separate, are
+   namespaced programId:badgeId, and score only their own program's sessions. */
 const BADGES = [
-  {id:"first",ic:"⛸",nm:"First session",test:s=>s.sessions.length>=1},
-  {id:"s10",ic:"◈",nm:"10 sessions",test:s=>s.sessions.length>=10},
-  {id:"s25",ic:"◆",nm:"25 sessions",test:s=>s.sessions.length>=25},
-  {id:"s50",ic:"✦",nm:"50 sessions",test:s=>s.sessions.length>=50},
-  {id:"w1",ic:"↻",nm:"Week landed",test:s=>weeksLanded(s)>=1},
-  {id:"w4",ic:"↻↻",nm:"4 weeks landed",test:s=>weeksLanded(s)>=4},
-  {id:"w12",ic:"❄",nm:"12 weeks landed",test:s=>weeksLanded(s)>=12},
-  {id:"p2",ic:"②",nm:"Phase 2",test:s=>s.phase>=2},
-  {id:"p3",ic:"③",nm:"Phase 3",test:s=>s.phase>=3},
-  {id:"ready",ic:"★",nm:"Jump ready",test:s=>CHECKLIST.every(c=>s.checklist[c.id])},
-  {id:"m1",ic:"↑",nm:"First measurement",test:s=>s.jumps.length>=1},
-  {id:"m5",ic:"↑↑",nm:"5 jump tests",test:s=>s.jumps.length>=5},
-  {id:"mup",ic:"⇧",nm:"Jumped higher",test:s=>s.jumps.length>=2 && Math.max(...s.jumps.map(j=>j.cm)) > s.jumps[0].cm}
+  {id:"first",ic:"⛸",nm:"First session",test:()=>S.sessions.length>=1},
+  {id:"s10",ic:"◈",nm:"10 sessions",test:()=>S.sessions.length>=10},
+  {id:"s25",ic:"◆",nm:"25 sessions",test:()=>S.sessions.length>=25},
+  {id:"s50",ic:"✦",nm:"50 sessions",test:()=>S.sessions.length>=50},
+  {id:"w1",ic:"↻",nm:"Week landed",test:()=>weeksLanded()>=1},
+  {id:"w4",ic:"↻↻",nm:"4 weeks landed",test:()=>weeksLanded()>=4},
+  {id:"w12",ic:"❄",nm:"12 weeks landed",test:()=>weeksLanded()>=12},
+  {id:"p2",ic:"②",nm:"Phase 2",test:()=>curPhase()>=2},
+  {id:"p3",ic:"③",nm:"Phase 3",test:()=>curPhase()>=3},
+  {id:"ready",ic:"★",nm:"Jump ready",test:()=>CHECKLIST.length>0 && CHECKLIST.every(c=>checklistState()[c.id])},
+  {id:"m1",ic:"↑",nm:"First measurement",test:()=>S.jumps.length>=1},
+  {id:"m5",ic:"↑↑",nm:"5 jump tests",test:()=>S.jumps.length>=5},
+  {id:"mup",ic:"⇧",nm:"Jumped higher",test:()=>S.jumps.length>=2 && Math.max(...S.jumps.map(j=>j.cm)) > S.jumps[0].cm}
 ];
 
 const THEMES=[["midnight","Midnight Rink"],["sunrise","Sunrise Session"],["cotton","Cotton Candy"],["emerald","Emerald Edge"]];
@@ -377,7 +406,7 @@ function hashDay(seed){
 function greetingBank(){
   const last = S.sessions[S.sessions.length-1];
   if(last && last.hurt && (Date.now()-last.date) < 5*86400000) return "sore";
-  if(sessionsThisWeek() >= S.weeklyGoal) return "landed";
+  if(sessionsThisWeek() >= weeklyGoal()) return "landed";
   if(last && (Date.now()-last.date) > 5*86400000) return "back";
   return "general";
 }
@@ -399,45 +428,451 @@ function greetingToday(){
     .trim();
 }
 
+/* ============ PROGRAM FORMAT ============ */
+/* A program is untrusted input — it may have been generated by an agent from a
+   loose natural-language brief. Everything below treats it that way: strings are
+   stripped of markup, volume is capped, and rules are looked up in a closed
+   registry rather than evaluated. See PROGRAM_FORMAT.md and program.schema.json. */
+
+const LIMITS = {
+  sets:6, planLen:12, days:7, phases:12,
+  reps:100, hold:600, repStep:20, holdStep:60,
+  jumpReps:20, jumpSets:4
+};
+
+/* Named strategies. A program picks one by name and passes parameters. It can
+   never supply an expression or anything else the app would have to evaluate. */
+const PROGRESSION = {
+  "none": ()=>null,
+  /* Every set at target and the session felt fine → up a step. Tough, or a set
+     well short of target → down a step. Clamped to base/max. */
+  "linear-step": (ctx)=>{
+    const {ex,cur,done,needed,feel,hurt,params} = ctx;
+    const shortfall = params.shortfall!=null ? params.shortfall : 0.7;
+    const allFull = done.length >= needed && done.every(v=>v>=cur);
+    if(allFull && feel!=="tough" && !hurt) return Math.min(ex.max, cur + ex.step);
+    if(feel==="tough" || done.some(v=>v < cur*shortfall)) return Math.max(ex.base, cur - ex.step);
+    return cur;
+  },
+  /* Conservative: needs N consecutive clean sessions before a target moves up.
+     Never steps down on a single rough day. Good coming back from pain. */
+  "hold-until-clean": (ctx)=>{
+    const {ex,cur,done,needed,feel,hurt,params,streak} = ctx;
+    const want = params.cleanSessions!=null ? params.cleanSessions : 2;
+    const clean = done.length >= needed && done.every(v=>v>=cur) && feel!=="tough" && !hurt;
+    if(clean && streak+1 >= want) return Math.min(ex.max, cur + ex.step);
+    return cur;
+  },
+  /* Reps climb to the top of the range, then reset to the bottom. The step up in
+     difficulty is the skater's to make (more load, harder variation). */
+  "double-progression": (ctx)=>{
+    const {ex,cur,done,needed,feel,hurt,params} = ctx;
+    const range = params.repRange || [ex.base, ex.max];
+    const allFull = done.length >= needed && done.every(v=>v>=cur);
+    if(!allFull || feel==="tough" || hurt) return cur;
+    return cur + ex.step > range[1] ? range[0] : Math.min(ex.max, cur + ex.step);
+  }
+};
+
+const UNLOCK = {
+  "manual": ()=>true,
+  "sessions-in-phase": (ctx)=>ctx.sessionsInPhase >= (ctx.n!=null?ctx.n:9),
+  "weeks-in-phase": (ctx)=>ctx.weeksInPhase >= (ctx.n!=null?ctx.n:3)
+};
+
+const BADGE_RULES = {
+  sessionCount:      (c,p)=>c.sessions.length >= (p.n||1),
+  weeksLanded:       (c,p)=>c.weeksLanded >= (p.n||1),
+  phaseReached:      (c,p)=>c.phaseIds.indexOf(p.phase) >= 0 && c.phaseIndex >= c.phaseIds.indexOf(p.phase)+1,
+  checklistComplete: (c)=>c.checklist.length>0 && c.checklist.every(x=>c.checked[x.id]),
+  exerciseTarget:    (c,p)=>(c.targets[p.ex]||0) >= (p.value||1),
+  exerciseSessions:  (c,p)=>c.sessions.filter(s=>s.exercises.some(r=>r.id===p.ex && r.sets.some(v=>v!=null))).length >= (p.n||1),
+  jumpCount:         (c,p)=>c.jumps.length >= (p.n||1),
+  jumpImprovement:   (c,p)=>c.jumps.length>=2 && Math.max(...c.jumps.map(j=>j.cm)) - c.jumps[0].cm >= (p.cm||1),
+  painFreeSessions:  (c,p)=>c.sessions.slice(-(p.n||1)).filter(s=>!s.hurt).length >= (p.n||1)
+};
+
+/* Strip markup and control characters. Program copy is rendered through esc()
+   too; this is the boundary check so nothing markup-shaped is ever stored. */
+function sanitizeText(v, maxLen){
+  if(typeof v !== "string") return "";
+  return v.replace(/<[^>]*>/g,"")
+          .replace(/[\x00-\x1f\x7f]/g," ")
+          .replace(/\s{2,}/g," ")
+          .trim()
+          .slice(0, maxLen||600);
+}
+function sanitizeList(a, maxItems, maxLen){
+  if(!Array.isArray(a)) return [];
+  return a.slice(0,maxItems).map(x=>sanitizeText(x,maxLen)).filter(Boolean);
+}
+
+/* Turn a phase's `plan` shorthand into the canonical single-entry `days` form,
+   so everything downstream only ever deals with days. */
+function phaseDays(ph){
+  if(Array.isArray(ph.days) && ph.days.length) return ph.days;
+  return [{id:"main", name:"Main", plan:Array.isArray(ph.plan)?ph.plan:[]}];
+}
+
+function validateProgram(def){
+  const errors = [], warnings = [];
+  const E = m=>errors.push(m), W = m=>warnings.push(m);
+
+  if(!def || typeof def !== "object"){ return {ok:false, errors:["Not a JSON object."], warnings:[]}; }
+  if(def.schemaVersion !== 1) E(`schemaVersion must be 1 (got ${JSON.stringify(def.schemaVersion)}).`);
+  if(!/^[a-z0-9][a-z0-9-]{1,48}$/.test(def.id||"")) E("id must be lowercase letters, digits and hyphens.");
+  if(!def.name) E("name is required.");
+  if(!/^\d+\.\d+\.\d+$/.test(def.version||"")) E("version must look like 1.0.0.");
+  if(sanitizeText(def.disclaimer,800).length < 40)
+    E("disclaimer is required and must actually say that this is general training guidance, not medical or coaching advice.");
+
+  const libV = def.coreLibrary;
+  if(!CORE_LIB[libV]) E(`This program was written against core library v${libV}, which this version of the app doesn't have. Update the app, or ask for the program to be rebuilt against v${CORE_LIB_LATEST}.`);
+  const lib = CORE_LIB[libV] || CORE_LIB[CORE_LIB_LATEST];
+
+  if(def.weeklyGoal!=null && !(def.weeklyGoal>=1 && def.weeklyGoal<=7)) E("weeklyGoal must be 1–7.");
+
+  const local = def.exercises && typeof def.exercises==="object" ? def.exercises : {};
+  const known = id => id.slice(0,5)==="core:" ? !!lib[id.slice(5)] : !!local[id];
+
+  Object.keys(def.overrides||{}).forEach(k=>{
+    if(k.slice(0,5)!=="core:") E(`overrides key "${k}" must be a core: reference. Program-defined exercises are edited directly.`);
+    else if(!lib[k.slice(5)]) E(`overrides references "${k}", which isn't in core library v${libV}.`);
+    const o = def.overrides[k]||{};
+    if(o.name!=null || o.mode!=null) E(`overrides for "${k}" cannot change name or mode.`);
+  });
+
+  const checkEx = (id, e)=>{
+    if(!e.name) E(`Exercise "${id}" needs a name.`);
+    if(e.mode!=="reps" && e.mode!=="hold") E(`Exercise "${id}" mode must be "reps" or "hold".`);
+    const isJump = !!e.jump, isHold = e.mode==="hold";
+    const setCap = isJump ? LIMITS.jumpSets : LIMITS.sets;
+    const valCap = isJump ? LIMITS.jumpReps : (isHold ? LIMITS.hold : LIMITS.reps);
+    if(!(e.sets>=1 && e.sets<=setCap)) E(`Exercise "${id}" sets must be 1–${setCap}${isJump?" (plyometrics are capped harder)":""}.`);
+    if(!(e.base>=1 && e.base<=valCap)) E(`Exercise "${id}" base must be 1–${valCap}${isHold?" seconds":" reps"}.`);
+    if(e.max!=null && !(e.max>=1 && e.max<=valCap)) E(`Exercise "${id}" max must be 1–${valCap}.`);
+    if(e.max!=null && e.base!=null && e.max < e.base) E(`Exercise "${id}" has max below base.`);
+    const stepCap = isHold ? LIMITS.holdStep : LIMITS.repStep;
+    if(e.step!=null && !(e.step>=0 && e.step<=stepCap)) E(`Exercise "${id}" step must be 0–${stepCap}.`);
+    if(e.balanceScore && !isHold) W(`Exercise "${id}" sets balanceScore but isn't a hold — it will be ignored.`);
+    (e.alternatives||[]).forEach(alt=>{
+      if(!known(alt)) E(`Exercise "${id}" lists alternative "${alt}", which doesn't resolve.`);
+    });
+    const needsKit = (e.equipment||[]).some(q=>q && !q.optional);
+    if(needsKit && !(e.alternatives||[]).length)
+      W(`Exercise "${id}" requires equipment but offers no alternatives — if she doesn't have it, that's a hole in the session.`);
+  };
+  Object.keys(local).forEach(id=>{
+    if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,48}$/.test(id)) E(`Exercise id "${id}" has characters that aren't allowed.`);
+    if(id.slice(0,5)==="core:") E(`Exercise id "${id}" must not use the core: prefix.`);
+    checkEx(id, local[id]||{});
+  });
+
+  const phases = Array.isArray(def.phases) ? def.phases : [];
+  if(!phases.length) E("A program needs at least one phase.");
+  if(phases.length > LIMITS.phases) E(`Too many phases (max ${LIMITS.phases}).`);
+  const seenPhase = {};
+  phases.forEach((ph,i)=>{
+    const where = `Phase ${i+1}${ph && ph.name?` ("${ph.name}")`:""}`;
+    if(!ph || typeof ph!=="object") { E(`${where} is not an object.`); return; }
+    if(!ph.id) E(`${where} needs an id.`);
+    if(seenPhase[ph.id]) E(`Duplicate phase id "${ph.id}".`);
+    seenPhase[ph.id] = 1;
+    if(!ph.name) E(`${where} needs a name.`);
+    if(ph.plan && ph.days) E(`${where} has both plan and days. Use one.`);
+    const days = phaseDays(ph);
+    if(days.length > LIMITS.days) E(`${where} has ${days.length} day variants (max ${LIMITS.days}).`);
+    days.forEach(d=>{
+      const dw = `${where} day "${(d&&d.name)||"?"}"`;
+      if(!d || !Array.isArray(d.plan) || !d.plan.length){ E(`${dw} has an empty plan.`); return; }
+      if(d.plan.length > LIMITS.planLen) E(`${dw} has ${d.plan.length} exercises (max ${LIMITS.planLen}). That's a long session for a young athlete.`);
+      d.plan.forEach(ref=>{ if(!known(ref)) E(`${dw} references "${ref}", which doesn't resolve to a core library or program exercise.`); });
+    });
+    if(ph.rotate && ph.rotate!=="sequential" && ph.rotate!=="choose") E(`${where} rotate must be "sequential" or "choose".`);
+    if(ph.unlockAfter!=null && !(ph.unlockAfter>=0 && ph.unlockAfter<=200)) E(`${where} unlockAfter must be 0–200.`);
+  });
+
+  const strat = (obj, registry, label)=>{
+    if(!obj) return;
+    if(!registry[obj.strategy]) E(`Unknown ${label} strategy "${obj.strategy}". Available: ${Object.keys(registry).join(", ")}.`);
+  };
+  strat(def.progression, PROGRESSION, "progression");
+  strat(def.unlock, UNLOCK, "unlock");
+  if(def.volumeScaling && ["none","age-banded","bodyweight-scaled"].indexOf(def.volumeScaling.strategy)<0)
+    E(`Unknown volumeScaling strategy "${def.volumeScaling.strategy}".`);
+
+  (def.badges||[]).forEach(b=>{
+    if(!b || !b.id || !b.nm){ E("Every badge needs an id and a name."); return; }
+    if(!b.rule || !BADGE_RULES[b.rule.type]) E(`Badge "${b.id}" uses unknown rule type "${b.rule&&b.rule.type}". Available: ${Object.keys(BADGE_RULES).join(", ")}.`);
+    const p = (b.rule&&b.rule.params)||{};
+    if(p.ex && !known(p.ex)) E(`Badge "${b.id}" references exercise "${p.ex}", which doesn't resolve.`);
+  });
+
+  return {ok:errors.length===0, errors, warnings};
+}
+
+/* Resolve a definition into the runtime view the app renders from: core refs
+   merged with overrides, phases normalised to days, copy sanitised. */
+function resolveProgram(def){
+  const lib = CORE_LIB[def.coreLibrary] || CORE_LIB[CORE_LIB_LATEST];
+  const local = def.exercises || {};
+  const overrides = def.overrides || {};
+
+  const cleanEx = (id, raw)=>{
+    const e = Object.assign({}, raw);
+    e.id = id;
+    e.name = sanitizeText(e.name, 60);
+    e.mode = e.mode==="hold" ? "hold" : "reps";
+    e.sets = Math.max(1, Math.min(e.jump?LIMITS.jumpSets:LIMITS.sets, e.sets|0));
+    const cap = e.jump ? LIMITS.jumpReps : (e.mode==="hold" ? LIMITS.hold : LIMITS.reps);
+    e.base = Math.max(1, Math.min(cap, e.base|0));
+    e.max  = Math.max(e.base, Math.min(cap, (e.max!=null?e.max:e.base)|0));
+    e.step = Math.max(0, Math.min(e.mode==="hold"?LIMITS.holdStep:LIMITS.repStep, e.step|0));
+    e.perSide = !!e.perSide; e.jump = !!e.jump;
+    e.balanceScore = !!e.balanceScore && e.mode==="hold";
+    e.why  = sanitizeText(e.why, 400);
+    e.how  = sanitizeList(e.how, 10, 240);
+    e.tips = sanitizeList(e.tips, 10, 240);
+    e.equipment = (Array.isArray(e.equipment)?e.equipment:[]).slice(0,4).map(q=>({
+      id: sanitizeText(q&&q.id, 48),
+      label: sanitizeText(q&&q.label, 60),
+      optional: !!(q&&q.optional),
+      params: (q&&q.params && typeof q.params==="object") ? q.params : {}
+    })).filter(q=>q.label);
+    e.alternatives = (Array.isArray(e.alternatives)?e.alternatives:[]).slice(0,4);
+    return e;
+  };
+
+  const exercises = {};
+  const want = {};
+  (def.phases||[]).forEach(ph=>phaseDays(ph).forEach(d=>(d.plan||[]).forEach(ref=>{ want[ref]=1; })));
+  Object.keys(overrides).forEach(k=>{ want[k]=1; });
+  /* pull in alternatives too, they can be selected mid-session */
+  let pass = 0;
+  while(pass++ < 3){
+    Object.keys(want).forEach(ref=>{
+      if(exercises[ref]) return;
+      const isCore = ref.slice(0,5)==="core:";
+      const src = isCore ? lib[ref.slice(5)] : local[ref];
+      if(!src) return;
+      const merged = isCore ? Object.assign({}, src, overrides[ref]||{}) : src;
+      exercises[ref] = cleanEx(ref, merged);
+    });
+    let added = false;
+    Object.keys(exercises).forEach(ref=>{
+      exercises[ref].alternatives.forEach(a=>{ if(!want[a]){ want[a]=1; added=true; } });
+    });
+    if(!added) break;
+  }
+
+  const phases = (def.phases||[]).map((ph,i)=>({
+    n: i+1,
+    id: ph.id,
+    name: sanitizeText(ph.name, 40),
+    weeks: sanitizeText(ph.weeks, 30),
+    blurb: sanitizeText(ph.blurb, 400),
+    unlockAfter: ph.unlockAfter,
+    rotate: ph.rotate==="choose" ? "choose" : "sequential",
+    days: phaseDays(ph).map((d,j)=>({
+      id: d.id || ("d"+j),
+      name: sanitizeText(d.name, 40) || "Main",
+      blurb: sanitizeText(d.blurb, 300),
+      plan: (d.plan||[]).filter(ref=>exercises[ref])
+    })),
+    /* first day's plan — what single-day phases and the Program view read */
+    get plan(){ return this.days[0].plan; }
+  }));
+
+  return {
+    def,
+    id: def.id,
+    name: sanitizeText(def.name, 60),
+    version: def.version,
+    summary: sanitizeText(def.summary, 400),
+    author: sanitizeText(def.author, 80),
+    disclaimer: sanitizeText(def.disclaimer, 800),
+    basedOn: sanitizeList(def.basedOn, 12, 200),
+    weeklyGoal: (def.weeklyGoal>=1 && def.weeklyGoal<=7) ? def.weeklyGoal : 3,
+    metrics: Array.isArray(def.metrics) ? def.metrics.slice(0,8) : [],
+    progression: def.progression && PROGRESSION[def.progression.strategy]
+      ? def.progression : {strategy:"linear-step", params:{shortfall:0.7}},
+    unlock: def.unlock && UNLOCK[def.unlock.strategy]
+      ? def.unlock : {strategy:"sessions-in-phase", params:{n:9}},
+    volumeScaling: def.volumeScaling || {strategy:"none", params:{}},
+    exercises,
+    phases,
+    checklist: (Array.isArray(def.checklist)?def.checklist:[]).slice(0,15)
+      .map(c=>({id:c.id, t:sanitizeText(c.t,160)})).filter(c=>c.id && c.t),
+    badges: (Array.isArray(def.badges)?def.badges:[]).slice(0,20)
+      .filter(b=>b && b.id && b.nm && b.rule && BADGE_RULES[b.rule.type])
+      .map(b=>({id:b.id, ic:sanitizeText(b.ic,4)||"◆", nm:sanitizeText(b.nm,40), rule:b.rule}))
+  };
+}
+
 /* ============ STATE ============ */
 const KEY="office-jump-v1";
+const STATE_VERSION = 2;
+
+let P = null;                 /* resolved active program */
+let EX = {}, PHASES = [], CHECKLIST = [];   /* live views onto P, rebuilt on switch */
+
 let S = load();
 let view = "today";
 let step = 0;
 let timer = {id:null,left:0,total:0,running:false};
 
 function blank(){
-  return {v:1,theme:"midnight",weeklyGoal:3,phase:1,sessions:[],targets:{},checklist:{},badges:[],active:null,
-          profile:{name:""},setupDone:false,
-          measure:{on:false,seen:false},jumps:[]};
+  return {
+    v:STATE_VERSION, theme:"midnight", setupDone:false,
+    profile:{name:"", dob:null},
+    equipment:"",                 /* free text: what she has to train with */
+    activeProgram:BUILTIN_ATG.id,
+    programs:{},                  /* id -> {def, phase, dayIndex, targets, checklist, archived, installedAt} */
+    weeklyGoalOverride:null,
+    sessions:[], badges:[], jumps:[],
+    metrics:{},                   /* metricId -> [{date, value}] */
+    active:null,
+    measure:{on:false,seen:false}
+  };
 }
+
+function programRecord(def){
+  return {def, phase:1, dayIndex:0, targets:{}, checklist:{}, archived:{}, installedAt:Date.now()};
+}
+
+/* Old saves keyed exercises by bare id; the portable format namespaces the
+   built-in ones. Remap so a returning skater keeps every adapted target. */
+function remapCoreId(id){
+  return CORE_LIB[1][id] ? "core:"+id : id;
+}
+
+function migrate(raw){
+  if(!raw || typeof raw!=="object") return null;
+  if((raw.v|0) >= 2) return raw;
+
+  const s = blank();
+  s.theme = raw.theme || s.theme;
+  s.setupDone = !!raw.setupDone;
+  s.profile = {name:(raw.profile&&raw.profile.name)||"", dob:null};
+  s.badges = Array.isArray(raw.badges) ? raw.badges.slice() : [];
+  s.jumps = Array.isArray(raw.jumps) ? raw.jumps.slice() : [];
+  s.measure = raw.measure || s.measure;
+
+  const fixEx = list => (Array.isArray(list)?list:[]).map(r=>Object.assign({}, r, {id:remapCoreId(r.id)}));
+  s.sessions = (Array.isArray(raw.sessions)?raw.sessions:[]).map(x=>
+    Object.assign({}, x, {programId:BUILTIN_ATG.id, exercises:fixEx(x.exercises)}));
+  s.active = raw.active
+    ? Object.assign({}, raw.active, {programId:BUILTIN_ATG.id, exercises:fixEx(raw.active.exercises)})
+    : null;
+
+  const targets = {};
+  Object.keys(raw.targets||{}).forEach(k=>{ targets[remapCoreId(k)] = raw.targets[k]; });
+
+  const rec = programRecord(BUILTIN_ATG);
+  rec.phase = Math.max(1, Math.min(BUILTIN_ATG.phases.length, raw.phase|0 || 1));
+  rec.targets = targets;
+  rec.checklist = raw.checklist || {};
+  s.programs[BUILTIN_ATG.id] = rec;
+
+  if(raw.weeklyGoal && raw.weeklyGoal !== BUILTIN_ATG.weeklyGoal) s.weeklyGoalOverride = raw.weeklyGoal;
+  return s;
+}
+
+/* Make sure built-ins are installed and the active pointer is valid. Runs on
+   every load so a new built-in program appears for existing users too. */
+function ensurePrograms(s){
+  if(!s.programs || typeof s.programs!=="object") s.programs = {};
+  BUILTIN_PROGRAMS.forEach(def=>{
+    const have = s.programs[def.id];
+    if(!have) s.programs[def.id] = programRecord(def);
+    else if(!have.def) have.def = def;
+  });
+  if(!s.programs[s.activeProgram]){
+    s.activeProgram = Object.keys(s.programs)[0] || BUILTIN_ATG.id;
+    if(!s.programs[s.activeProgram]) s.programs[s.activeProgram] = programRecord(BUILTIN_ATG);
+  }
+  const rec = s.programs[s.activeProgram];
+  if(rec.phase==null) rec.phase = 1;
+  if(rec.dayIndex==null) rec.dayIndex = 0;
+  if(!rec.targets) rec.targets = {};
+  if(!rec.checklist) rec.checklist = {};
+  return s;
+}
+
+function hydrate(data){
+  const merged = Object.assign(blank(), migrate(data) || {});
+  if(!merged.profile) merged.profile = {name:"", dob:null};
+  if(!merged.metrics) merged.metrics = {};
+  return ensurePrograms(merged);
+}
+
 function load(){
+  let raw = null;
+  try{ raw = localStorage.getItem(KEY); }
+  catch(e){ return ensurePrograms(blank()); }   /* storage blocked entirely */
+  if(!raw) return ensurePrograms(blank());
   try{
-    const raw = localStorage.getItem(KEY);
-    if(!raw) return blank();
-    return Object.assign(blank(), JSON.parse(raw));
-  }catch(e){ return blank(); }
+    return hydrate(JSON.parse(raw));
+  }catch(e){
+    /* Never silently discard a save. Keep the original bytes so a bad migration
+       is recoverable, and say so loudly rather than showing an empty app. */
+    console.error("Could not read the saved data — starting fresh for this visit. The original is kept under "+KEY+".bak", e);
+    try{ localStorage.setItem(KEY+".bak", raw); }catch(e2){}
+    return ensurePrograms(blank());
+  }
 }
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(S)); }
   catch(e){ /* storage unavailable — app still works for this visit */ }
 }
 
+/* ============ ACTIVE PROGRAM ACCESSORS ============ */
+function PS(){ return S.programs[S.activeProgram]; }
+function refreshProgram(){
+  P = resolveProgram(PS().def);
+  EX = P.exercises; PHASES = P.phases; CHECKLIST = P.checklist;
+  const rec = PS();
+  rec.phase = Math.max(1, Math.min(PHASES.length, rec.phase||1));
+  rec.dayIndex = Math.max(0, Math.min(currentPhase().days.length-1, rec.dayIndex||0));
+}
+function currentPhase(){ return PHASES[Math.max(0, Math.min(PHASES.length-1, (PS().phase||1)-1))]; }
+function curPhase(){ return PS().phase || 1; }
+function setPhase(n){ PS().phase = Math.max(1, Math.min(PHASES.length, n)); PS().dayIndex = 0; }
+function targetsMap(){ return PS().targets; }
+function checklistState(){ return PS().checklist; }
+function weeklyGoal(){ return S.weeklyGoalOverride || P.weeklyGoal || 3; }
+
 /* ============ HELPERS ============ */
 function targetFor(id){
   const e = EX[id];
-  return S.targets[id] != null ? S.targets[id] : e.base;
+  if(!e) return 0;
+  const t = targetsMap()[id];
+  return t != null ? t : e.base;
 }
 function setsFor(id, heavy){
   const e = EX[id];
-  if(id==="warmup"||id==="cooldown") return 1;
+  if(!e) return 1;
   let n = e.sets;
+  if(n <= 1) return n;              /* warm-ups and cool-downs stay single */
   if(heavy) n = Math.max(2, n-1);
   return n;
 }
-function planFor(phase, heavy){
-  const p = PHASES[phase-1].plan;
-  return heavy ? p.filter(id=>!EX[id].jump) : p.slice();
+function planFor(phase, heavy, dayIdx){
+  const ph = PHASES[phase-1];
+  if(!ph) return [];
+  const d = ph.days[Math.max(0, Math.min(ph.days.length-1, dayIdx!=null?dayIdx:(PS().dayIndex||0)))];
+  const p = d ? d.plan : [];
+  return heavy ? p.filter(id=>EX[id] && !EX[id].jump) : p.slice();
+}
+function phaseUnlocked(n){
+  const ph = PHASES[n-1];
+  if(!ph) return false;
+  const u = P.unlock;
+  const fn = UNLOCK[u.strategy] || UNLOCK["sessions-in-phase"];
+  const want = ph.unlockAfter!=null ? ph.unlockAfter : ((u.params&&u.params.n)!=null ? u.params.n : 9);
+  const inPhase = S.sessions.filter(s=>s.programId===S.activeProgram && s.phase===n);
+  const weeks = Object.keys(inPhase.reduce((m,x)=>{ m[weekKey(x.date)]=1; return m; },{})).length;
+  return fn({sessionsInPhase:inPhase.length, weeksInPhase:weeks, n:want});
 }
 function mondayOf(d){
   const x = new Date(d); x.setHours(0,0,0,0);
@@ -450,12 +885,14 @@ function sessionsThisWeek(){
   const wk = mondayOf(new Date());
   return S.sessions.filter(s=>weekKey(s.date)===wk).length;
 }
-function weeksLanded(s){
+function weeksLanded(){
   const m = {};
-  s.sessions.forEach(x=>{ const k=weekKey(x.date); m[k]=(m[k]||0)+1; });
-  return Object.values(m).filter(n=>n>=s.weeklyGoal).length;
+  S.sessions.forEach(x=>{ const k=weekKey(x.date); m[k]=(m[k]||0)+1; });
+  return Object.values(m).filter(n=>n>=weeklyGoal()).length;
 }
-function phaseSessionCount(p){ return S.sessions.filter(s=>s.phase===p).length; }
+function phaseSessionCount(p){
+  return S.sessions.filter(s=>s.programId===S.activeProgram && s.phase===p).length;
+}
 function fmtClock(sec){
   const m=Math.floor(sec/60), s=sec%60;
   return m+":"+String(s).padStart(2,"0");
@@ -466,23 +903,61 @@ function fmtDate(ts){
 }
 function esc(t){ return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
-/* adaptive targets: bump when a session was completed cleanly and didn't feel tough */
+/* Adaptive targets. The program picks the strategy; the app supplies the facts
+   and clamps the result. Runs on save, against the active program only. */
 function adapt(session){
+  const rec0 = PS();
+  const strat = P.progression;
+  const fn = PROGRESSION[strat.strategy] || PROGRESSION["linear-step"];
+  const params = strat.params || {};
+  if(!rec0.streaks) rec0.streaks = {};
+
   session.exercises.forEach(rec=>{
     const e = EX[rec.id];
     if(!e || e.step===0) return;
     const done = rec.sets.filter(v=>v!=null);
     if(!done.length) return;
     const cur = targetFor(rec.id);
-    const allFull = done.length >= setsFor(rec.id,false) && done.every(v=>v>=cur);
-    let next = cur;
-    if(allFull && session.feel!=="tough" && !session.hurt) next = Math.min(e.max, cur + e.step);
-    else if(session.feel==="tough" || done.some(v=>v < cur*0.7)) next = Math.max(e.base, cur - e.step);
-    S.targets[rec.id] = next;
+    const needed = setsFor(rec.id,false);
+    const streak = rec0.streaks[rec.id] || 0;
+
+    const next = fn({ex:e, cur, done, needed, feel:session.feel, hurt:session.hurt, params, streak});
+    if(next == null) return;
+
+    const clean = done.length >= needed && done.every(v=>v>=cur) && session.feel!=="tough" && !session.hurt;
+    rec0.streaks[rec.id] = clean ? (next>cur ? 0 : streak+1) : 0;
+    rec0.targets[rec.id] = Math.max(e.base, Math.min(e.max, next));
   });
 }
+
+/* Program badges score only their own program's sessions and are stored
+   namespaced, so two programs can both define "first-week" without colliding. */
+function programBadgeContext(){
+  const mine = S.sessions.filter(s=>s.programId===S.activeProgram);
+  const m = {};
+  mine.forEach(x=>{ const k=weekKey(x.date); m[k]=(m[k]||0)+1; });
+  return {
+    sessions: mine,
+    weeksLanded: Object.values(m).filter(n=>n>=weeklyGoal()).length,
+    phaseIds: PHASES.map(p=>p.id),
+    phaseIndex: curPhase(),
+    checklist: CHECKLIST,
+    checked: checklistState(),
+    targets: targetsMap(),
+    jumps: S.jumps
+  };
+}
 function awardBadges(){
-  BADGES.forEach(b=>{ if(!S.badges.includes(b.id) && b.test(S)) S.badges.push(b.id); });
+  BADGES.forEach(b=>{ if(!S.badges.includes(b.id) && b.test()) S.badges.push(b.id); });
+  if(!P || !P.badges.length) return;
+  const ctx = programBadgeContext();
+  P.badges.forEach(b=>{
+    const key = S.activeProgram+":"+b.id;
+    if(S.badges.includes(key)) return;
+    const fn = BADGE_RULES[b.rule.type];
+    try{ if(fn && fn(ctx, b.rule.params||{})) S.badges.push(key); }
+    catch(e){ /* a malformed rule must never break saving a session */ }
+  });
 }
 
 /* ============ MOTION SENSORS ============ */
@@ -617,10 +1092,10 @@ const view$ = ()=>document.getElementById("view");
 
 function render(){
   document.documentElement.setAttribute("data-theme", S.theme);
-  document.getElementById("phaseTag").textContent = "Phase "+S.phase;
+  document.getElementById("phaseTag").textContent = "Phase "+curPhase();
   const titles = {today:"Today",program:"Program",progress:"Progress",settings:"Settings"};
   document.getElementById("title").textContent = S.active ? "Session" : titles[view];
-  document.getElementById("eyebrow").textContent = S.active ? PHASES[S.active.phase-1].name : "Off-ice";
+  document.getElementById("eyebrow").textContent = S.active ? ((PHASES[S.active.phase-1]||{}).name || "Session") : "Off-ice";
   document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-current", String(b.dataset.go===view)));
   if(!S.setupDone) return renderSetup();
   if(view==="jump") return renderJump();
@@ -778,12 +1253,12 @@ function renderSetup(){
 
 /* ---- TODAY ---- */
 function renderToday(){
-  const done = sessionsThisWeek(), goal = S.weeklyGoal;
+  const done = sessionsThisWeek(), goal = weeklyGoal();
   const pct = Math.min(1, done/goal);
   const R=58, C=2*Math.PI*R;
   const landed = done>=goal;
-  const ph = PHASES[S.phase-1];
-  const canAdvance = S.phase<3 && phaseSessionCount(S.phase)>=9;
+  const ph = currentPhase();
+  const canAdvance = curPhase() < PHASES.length && phaseUnlocked(curPhase());
 
   view$().innerHTML = `
   <p class="greet">${greetingToday()}</p>
@@ -827,9 +1302,9 @@ function renderToday(){
   </div>`:""}
 
   ${canAdvance?`<div class="card">
-    <h2>Ready for Phase ${S.phase+1}?</h2>
-    <p class="sub" style="margin:6px 0 14px">You've logged ${phaseSessionCount(S.phase)} sessions in Phase ${S.phase}. Move up only if the current work feels controlled, not just survivable.</p>
-    <button class="btn quiet wide" id="advance">Move to Phase ${S.phase+1}</button>
+    <h2>Ready for Phase ${curPhase()+1}?</h2>
+    <p class="sub" style="margin:6px 0 14px">You've logged ${phaseSessionCount(curPhase())} sessions in Phase ${curPhase()}. Move up only if the current work feels controlled, not just survivable.</p>
+    <button class="btn quiet wide" id="advance">Move to Phase ${curPhase()+1}</button>
   </div>`:""}
 
   ${S.sessions.length?`<div class="card">
@@ -844,14 +1319,17 @@ function renderToday(){
   const hb=document.getElementById("heavy");
   hb.onclick=()=>{ heavy=!heavy; hb.setAttribute("aria-checked",String(heavy)); };
   document.getElementById("start").onclick=()=>{
-    const plan = planFor(S.phase, heavy);
-    S.active = {date:Date.now(),phase:S.phase,heavy,exercises:plan.map(id=>({id,sets:[]}))};
+    const ph = currentPhase(), di = PS().dayIndex||0;
+    const plan = planFor(curPhase(), heavy, di);
+    S.active = {date:Date.now(), programId:S.activeProgram, phase:curPhase(),
+                phaseId:ph.id, dayId:(ph.days[di]||ph.days[0]).id,
+                heavy, exercises:plan.map(id=>({id,sets:[]}))};
     step=0; save(); render();
   };
   const jb=document.getElementById("jump");
   if(jb) jb.onclick=()=>{ view="jump"; jt.phase="idle"; jt.found=[]; render(); };
   const ad=document.getElementById("advance");
-  if(ad) ad.onclick=()=>{ S.phase++; awardBadges(); save(); render(); };
+  if(ad) ad.onclick=()=>{ setPhase(curPhase()+1); awardBadges(); save(); render(); };
 }
 
 function jumpPrompt(){
@@ -1017,6 +1495,10 @@ function renderFinish(){
     adapt(A);
     S.sessions.push(A);
     S.active=null;
+    /* advance the day variant for phases that rotate */
+    const ph = currentPhase();
+    if(ph.days.length>1 && ph.rotate==="sequential")
+      PS().dayIndex = ((PS().dayIndex||0)+1) % ph.days.length;
     awardBadges();
     draft={feel:null,notes:"",hurt:false};
     step=0; save(); render();
@@ -1031,7 +1513,7 @@ function renderProgram(){
   view$().innerHTML = PHASES.map(p=>`
     <div class="phase-h">
       <h2>${p.name}</h2>
-      <span class="pill ${p.n===S.phase?"live":""}">${p.n===S.phase?"Current":p.weeks}</span>
+      <span class="pill ${p.n===curPhase()?"live":""}">${p.n===curPhase()?"Current":p.weeks}</span>
     </div>
     <p class="sub" style="margin:0 0 12px">${p.blurb}</p>
     ${p.plan.filter(id=>id!=="warmup"&&id!=="cooldown").map(id=>{
@@ -1080,8 +1562,8 @@ function renderProgress(){
   <div class="card">
     <h2>Jump readiness</h2>
     <p class="sub" style="margin:6px 0 6px">Tick these off as they become true. All seven means you're strong enough for harder jump work.</p>
-    ${CHECKLIST.map(c=>`<button class="check ${S.checklist[c.id]?"on":""}" data-ck="${c.id}">
-      <span class="box">${S.checklist[c.id]?"✓":""}</span><span class="tx">${c.t}</span></button>`).join("")}
+    ${CHECKLIST.map(c=>`<button class="check ${checklistState()[c.id]?"on":""}" data-ck="${c.id}">
+      <span class="box">${checklistState()[c.id]?"✓":""}</span><span class="tx">${esc(c.t)}</span></button>`).join("")}
   </div>
 
   <div class="card">
@@ -1092,7 +1574,7 @@ function renderProgress(){
 
   view$().querySelectorAll("[data-ck]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.ck;
-    S.checklist[id]=!S.checklist[id];
+    checklistState()[id]=!checklistState()[id];
     awardBadges(); save(); renderProgress();
   });
 }
@@ -1140,8 +1622,9 @@ function importCode(){
     const data=JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
     if(!data || !Array.isArray(data.sessions)) throw 0;
     if(S.sessions.length && !confirm(`This will replace what's on this device (${S.sessions.length} sessions) with the code's ${data.sessions.length}. Continue?`)) return false;
-    S=Object.assign(blank(),data);
+    S=hydrate(data);
     S.active=null; S.setupDone=true;
+    refreshProgram();
     save(); view="today"; render();
     return true;
   }catch(e){
@@ -1172,7 +1655,7 @@ function renderSettings(){
     <h2>Sessions per week</h2>
     <p class="sub" style="margin:6px 0 12px">This is what fills the rotation meter. Three is plenty alongside ice time.</p>
     <div class="feels">
-      ${[3,4].map(n=>`<button data-goal="${n}" class="${S.weeklyGoal===n?"on":""}">
+      ${[3,4].map(n=>`<button data-goal="${n}" class="${weeklyGoal()===n?"on":""}">
         <span class="e mono">${n}</span><span class="l">per week</span></button>`).join("")}
     </div>
   </div>
@@ -1200,10 +1683,10 @@ function renderSettings(){
 
   <div class="card">
     <h2>Phase</h2>
-    <p class="sub" style="margin:6px 0 12px">Currently Phase ${S.phase}. Move down anytime if the work stops feeling controlled.</p>
+    <p class="sub" style="margin:6px 0 12px">Currently Phase ${curPhase()}. Move down anytime if the work stops feeling controlled.</p>
     <div class="feels">
-      ${[1,2,3].map(n=>`<button data-ph="${n}" class="${S.phase===n?"on":""}">
-        <span class="e mono">${n}</span><span class="l">${PHASES[n-1].name}</span></button>`).join("")}
+      ${PHASES.map(p=>`<button data-ph="${p.n}" class="${curPhase()===p.n?"on":""}">
+        <span class="e mono">${p.n}</span><span class="l">${esc(p.name)}</span></button>`).join("")}
     </div>
   </div>
 
@@ -1218,8 +1701,8 @@ function renderSettings(){
   </div>`;
 
   view$().querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{ S.theme=b.dataset.th; save(); render(); });
-  view$().querySelectorAll("[data-goal]").forEach(b=>b.onclick=()=>{ S.weeklyGoal=+b.dataset.goal; save(); renderSettings(); });
-  view$().querySelectorAll("[data-ph]").forEach(b=>b.onclick=()=>{ S.phase=+b.dataset.ph; awardBadges(); save(); render(); });
+  view$().querySelectorAll("[data-goal]").forEach(b=>b.onclick=()=>{ S.weeklyGoalOverride=+b.dataset.goal; save(); renderSettings(); });
+  view$().querySelectorAll("[data-ph]").forEach(b=>b.onclick=()=>{ setPhase(+b.dataset.ph); awardBadges(); save(); render(); });
 
   document.getElementById("copy").onclick=async()=>{
     const code=btoa(unescape(encodeURIComponent(JSON.stringify(S))));
@@ -1258,7 +1741,7 @@ function renderSettings(){
   document.getElementById("wipe").onclick=()=>{
     if(!confirm("Erase all sessions and progress on this device?")) return;
     if(!confirm("Last check — this can't be undone.")) return;
-    S=blank(); save(); view="today"; render();
+    S=ensurePrograms(blank()); refreshProgram(); save(); view="today"; render();
   };
 }
 
@@ -1267,6 +1750,13 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   if(S.active && !confirm("You have a session in progress. Leave it?")) return;
   if(S.active){ S.active=null; step=0; save(); }
   stopTimer(); view=b.dataset.go; render();
+});
+refreshProgram();
+/* self-check: a built-in that doesn't satisfy its own format is a bug, and the
+   authoring skill is told to imitate it. Loud in the console, harmless in use. */
+BUILTIN_PROGRAMS.forEach(def=>{
+  const r = validateProgram(def);
+  if(!r.ok) console.error("Built-in program "+def.id+" fails validation:", r.errors);
 });
 awardBadges();
 render();
