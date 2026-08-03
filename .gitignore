@@ -1,1 +1,6 @@
 .DS_Store
+
+# Project context for Claude Code. Deliberately untracked: this repo is public
+# (GitHub Pages), and CLAUDE.md carries details about the skater it's built for.
+# It lives on disk only. Copy it by hand to a second machine if you need it there.
+CLAUDE.md
