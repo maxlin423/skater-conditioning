@@ -835,7 +835,8 @@ function buildExport(opts){
   const ex = {};
   const touch = id=>{
     if(!ex[id]) ex[id] = {id, appearances:0, skipped:0, swappedInFor:{}, swappedAwayTo:{},
-      sets:[], effort:{}, fun:{}, painDates:[], notes:[], firstSeen:null, lastSeen:null};
+      sets:[], effort:{}, fun:{}, painDates:[], notes:[], firstSeen:null, lastSeen:null,
+      attempts:[]};
     return ex[id];
   };
   mine.forEach(s=>{
@@ -844,8 +845,14 @@ function buildExport(opts){
       a.appearances++;
       a.firstSeen = a.firstSeen==null ? s.date : Math.min(a.firstSeen, s.date);
       a.lastSeen  = Math.max(a.lastSeen||0, s.date);
-      if(r.skipped || !r.sets.some(v=>v!=null)) a.skipped++;
+      const logged = !(r.skipped || !r.sets.some(v=>v!=null));
+      if(!logged) a.skipped++;
       else a.sets.push({date:s.date, values:r.sets.filter(v=>v!=null)});
+      /* A session flagged for pain or marked tough suppresses progression by
+         design, so it was never a chance for this exercise to move. Tracking
+         that separately stops one sore knee making every other exercise in the
+         session look stalled. */
+      a.attempts.push({date:s.date, logged, blocked: !!s.hurt || s.feel==="tough"});
       if(r.swappedFrom){
         a.swappedInFor[r.swappedFrom] = (a.swappedInFor[r.swappedFrom]||0)+1;
         const b = touch(r.swappedFrom);
@@ -867,7 +874,10 @@ function buildExport(opts){
     const ups = moves.filter(m=>m.to > m.from);
     const lastUp = ups.length ? ups[ups.length-1].date : null;
     const cur = e ? targetFor(id) : null;
+    const since = lastUp || 0;
+    const chances = a.attempts.filter(x=>x.logged && !x.blocked && x.date > since).length;
     return {
+      cleanOpportunities: chances,
       id,
       name: e ? e.name : "(no longer in the program)",
       inProgram: !!e,
@@ -898,7 +908,10 @@ function buildExport(opts){
   const dull = e => (e.funMix.dull||0);
   const hard = e => (e.effortMix.hard||0);
   const signals = {
+    /* Stalled means it had real chances to move and didn't — not merely that
+       time passed while sessions were being suppressed for other reasons. */
     stalled: exercises.filter(e=>e.inProgram && !e.fixed && !e.atCap && e.appearances>=5 &&
+                e.cleanOpportunities>=3 &&
                 (e.neverMoved || (e.daysSinceIncrease!=null && e.daysSinceIncrease>=STALL_DAYS)))
               .map(e=>e.id),
     atCap: exercises.filter(e=>e.atCap).map(e=>e.id),

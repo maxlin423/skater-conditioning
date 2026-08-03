@@ -336,9 +336,9 @@ This is the other half of the loop — what the app hands *back*. Settings →
 ```
 
 Each entry in `exercises` carries `target`/`base`/`max`, `atCap`, `neverMoved`,
-`daysSinceIncrease`, `appearances`, `skipped`, `weeksInProgram`, `effortMix`,
-`funMix`, `painDates`, `swappedInFor` / `swappedAwayTo`, `recentSets` and any
-notes she wrote.
+`daysSinceIncrease`, `cleanOpportunities`, `appearances`, `skipped`,
+`weeksInProgram`, `effortMix`, `funMix`, `painDates`, `swappedInFor` /
+`swappedAwayTo`, `recentSets` and any notes she wrote.
 
 ### Signals
 
@@ -346,7 +346,7 @@ Derived conclusions, precomputed so they can't be missed:
 
 | Signal | Means |
 |---|---|
-| `stalled` | Target hasn't risen in 21+ days over 5+ sessions. **The most actionable one.** |
+| `stalled` | Target hasn't risen in 21+ days over 5+ sessions, **and it had at least 3 real chances to** (`cleanOpportunities`). Sessions flagged for pain or marked tough suppress progression by design, so they don't count — otherwise one sore knee makes every exercise in the session look stalled. **The most actionable signal.** |
 | `atCap` | Sitting at `max` — the ceiling needs raising, or the exercise needs replacing |
 | `consistentlyHard` | Rated hard repeatedly — likely prescribed too heavy |
 | `tooEasy` | Rated easy repeatedly and not at cap — under-prescribed |
