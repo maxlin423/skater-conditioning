@@ -159,6 +159,14 @@ input,textarea{font:inherit;color:inherit}
 textarea{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:84px;resize:vertical;margin-top:10px}
 .field{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;min-height:48px;font-weight:500}
 
+/* Safari sizes input[type=date] from its native control rather than the box it's
+   in, so width:100% doesn't hold it and it spills out of the card. Strip the
+   native appearance and let the intrinsic minimum collapse. */
+input[type="date"]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%}
+input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0;min-width:0}
+input[type="date"]::-webkit-datetime-edit{padding:0;overflow:hidden}
+input[type="date"]::-webkit-calendar-picker-indicator{margin:0 0 0 auto;flex:none}
+
 .greet{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-weight:600;font-size:17px;line-height:1.35;
   letter-spacing:-.01em;margin:0 0 16px;padding-left:14px;border-left:3px solid var(--accent)}
 
