@@ -235,6 +235,10 @@
           "type": "array", "maxItems": 4,
           "items": { "$ref": "#/$defs/exerciseRef" },
           "description": "Substitutes when the equipment isn't available. Strongly recommended on any exercise with non-optional equipment. The skater's swap is recorded and exported."
+        },
+        "resetTarget": {
+          "type": "boolean", "default": false,
+          "description": "Revision only. Normally a revision carries the skater's current adaptive target forward. Set true to deliberately discard it and restart from base — for an exercise that stalled, or after a change that makes the old target meaningless."
         }
       },
       "allOf": [
@@ -289,7 +293,11 @@
         "how": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 240 } },
         "tips": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 240 } },
         "equipment": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/equipment" } },
-        "alternatives": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/exerciseRef" } }
+        "alternatives": { "type": "array", "maxItems": 4, "items": { "$ref": "#/$defs/exerciseRef" } },
+        "resetTarget": {
+          "type": "boolean", "default": false,
+          "description": "Revision only. Discard the skater's carried-forward target for this exercise and restart from base."
+        }
       }
     },
 

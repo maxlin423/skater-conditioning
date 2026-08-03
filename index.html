@@ -164,6 +164,20 @@ textarea{width:100%;background:var(--surface2);border:1px solid var(--line);bord
 
 .notice{background:var(--surface2);border-left:3px solid var(--accent);border-radius:10px;padding:12px 14px;font-size:14px;margin-top:12px}
 
+/* ---------- program library ---------- */
+.prog{width:100%;text-align:left;background:var(--surface2);border:1px solid transparent;border-radius:12px;
+  padding:12px 14px;margin-top:8px;display:block}
+.prog.live{border-color:var(--accent)}
+.prog .pn{font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.prog .pv{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.03em}
+.prog .ps{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.4}
+.prog .pa{font-size:12px;color:var(--accent);font-weight:600;margin-top:6px}
+.paste{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;min-height:132px}
+.errs{margin:10px 0 0;padding:0;list-style:none}
+.errs li{background:var(--surface2);border-left:3px solid var(--accent);border-radius:8px;
+  padding:9px 12px;font-size:13px;margin-top:6px;line-height:1.4}
+.errs li.warn{border-left-color:var(--muted);opacity:.85}
+
 /* ---------- bottom nav ---------- */
 nav{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
   display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:20}
@@ -709,6 +723,95 @@ function resolveProgram(def){
   };
 }
 
+/* Install a program, or fold it into one already installed.
+
+   Same id + different version is a REVISION: she keeps her adaptive targets and
+   her place in the program. Getting this wrong would make using the feedback
+   loop cost her weeks of accumulated progress, which would teach her not to use
+   it. A different id installs a genuinely separate program instead. */
+function installProgram(def, opts){
+  opts = opts || {};
+  const v = validateProgram(def);
+  if(!v.ok) return {ok:false, errors:v.errors, warnings:v.warnings};
+
+  const existing = S.programs[def.id];
+  if(!existing){
+    S.programs[def.id] = programRecord(def);
+    return {ok:true, mode:"new", warnings:v.warnings, name:def.name};
+  }
+
+  const fromVersion = existing.def ? existing.def.version : "?";
+  const next = resolveProgram(def);
+  const oldTargets = existing.targets || {};
+  const archived = Object.assign({}, existing.archived || {});
+  const carried = {}, reset = [], dropped = [];
+
+  Object.keys(oldTargets).forEach(id=>{
+    const e = next.exercises[id];
+    if(!e){ archived[id] = oldTargets[id]; dropped.push(id); return; }
+    const spec = (def.overrides && def.overrides[id]) || (def.exercises && def.exercises[id]) || {};
+    if(spec.resetTarget){ reset.push(id); return; }        /* falls back to base */
+    carried[id] = Math.max(e.base, Math.min(e.max, oldTargets[id]));
+  });
+
+  /* keep her where she is in the program, matched by phase id rather than index
+     so inserting a phase doesn't silently move her */
+  const oldPhase = (existing.def && existing.def.phases && existing.def.phases[(existing.phase||1)-1]) || null;
+  let phase = existing.phase || 1;
+  if(oldPhase){
+    const i = next.phases.findIndex(p=>p.id === oldPhase.id);
+    phase = i >= 0 ? i+1 : Math.min(phase, next.phases.length);
+  }
+  phase = Math.max(1, Math.min(next.phases.length, phase));
+
+  const keptStreaks = {};
+  Object.keys(existing.streaks || {}).forEach(id=>{ if(carried[id]!=null) keptStreaks[id] = existing.streaks[id]; });
+
+  existing.def = def;
+  existing.targets = carried;
+  existing.archived = archived;
+  existing.streaks = keptStreaks;
+  existing.phase = phase;
+  existing.dayIndex = Math.max(0, Math.min(next.phases[phase-1].days.length-1, existing.dayIndex||0));
+  existing.revisedAt = Date.now();
+
+  return {ok:true, mode:"revision", warnings:v.warnings, name:def.name,
+          fromVersion, toVersion:def.version,
+          carried:Object.keys(carried).length, reset, dropped,
+          note: sanitizeText(def.revisionNote, 600)};
+}
+
+/* The definition as authored, for handing to an authoring agent or another
+   device. Exports the stored def, not the resolved form, so it stays compact
+   and re-importable. */
+function programJSON(id){
+  const rec = S.programs[id];
+  return rec ? JSON.stringify(rec.def, null, 2) : null;
+}
+
+function downloadText(filename, text, mime){
+  try{
+    const blob = new Blob([text], {type:(mime||"application/json")+";charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    return true;
+  }catch(e){ return false; }
+}
+
+async function copyText(text, okMsg){
+  try{
+    await navigator.clipboard.writeText(text);
+    if(okMsg) alert(okMsg);
+    return true;
+  }catch(e){
+    window.prompt("Copy this:", text);
+    return false;
+  }
+}
+
 /* ============ STATE ============ */
 const KEY="office-jump-v1";
 const STATE_VERSION = 2;
@@ -784,7 +887,14 @@ function ensurePrograms(s){
   if(!s.programs || typeof s.programs!=="object") s.programs = {};
   BUILTIN_PROGRAMS.forEach(def=>{
     const have = s.programs[def.id];
-    if(!have) s.programs[def.id] = programRecord(def);
+    if(!have){
+      const rec = programRecord(def);
+      /* The built-in's disclaimer is already on the Settings screen permanently,
+         so don't interrupt a first launch with it. Imported programs still get
+         it on activation, because she hasn't seen those anywhere else. */
+      rec.disclaimerSeen = true;
+      s.programs[def.id] = rec;
+    }
     else if(!have.def) have.def = def;
   });
   if(!s.programs[s.activeProgram]){
@@ -1633,6 +1743,48 @@ function importCode(){
   }
 }
 
+function isBuiltin(id){ return BUILTIN_PROGRAMS.some(d=>d.id===id); }
+
+function progList(){
+  return Object.keys(S.programs).map(id=>{
+    const rec = S.programs[id], d = rec.def, live = id===S.activeProgram;
+    const sessions = S.sessions.filter(s=>s.programId===id).length;
+    const phases = (d.phases||[]).length;
+    return `<div class="prog ${live?"live":""}">
+      <div class="pn">${esc(d.name||id)} <span class="pv">v${esc(d.version||"?")}</span></div>
+      ${d.summary?`<div class="ps">${esc(d.summary)}</div>`:""}
+      <div class="ps">${phases} phase${phases===1?"":"s"} · ${sessions} session${sessions===1?"":"s"} logged${d.author?` · ${esc(d.author)}`:""}</div>
+      <div class="pa">${live?"Active — Phase "+rec.phase:""}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${live?"":`<button class="btn sm" data-use="${esc(id)}" style="flex:1;min-width:110px">Switch to this</button>`}
+        <button class="btn ghost sm" data-exp="${esc(id)}" style="flex:1;min-width:110px">Export</button>
+        ${(!live && !isBuiltin(id))?`<button class="btn ghost sm" data-rm="${esc(id)}" style="flex:1;min-width:110px">Remove</button>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* Shown once when a program first becomes active. A program cannot ship without
+   a disclaimer, and she should see it before she trains on it. */
+function showDisclaimerFor(id){
+  const rec = S.programs[id];
+  if(!rec || rec.disclaimerSeen) return;
+  const text = sanitizeText(rec.def.disclaimer, 800);
+  if(text) alert(rec.def.name+"\n\n"+text);
+  rec.disclaimerSeen = true;
+}
+
+function switchProgram(id){
+  if(id===S.activeProgram) return;
+  if(S.active && !confirm("You have a session in progress. Switching programs will discard it. Continue?")) return;
+  S.active = null; step = 0;
+  S.activeProgram = id;
+  refreshProgram();
+  showDisclaimerFor(id);
+  awardBadges();
+  save(); view="settings"; render();
+}
+
 function renderSettings(){
   view$().innerHTML=`
   <div class="card">
@@ -1682,6 +1834,18 @@ function renderSettings(){
   </div>
 
   <div class="card">
+    <h2>Training program</h2>
+    <p class="sub" style="margin:6px 0 4px">Switching keeps everything — your sessions, badges and rotation meter carry across every program. Each program remembers its own phase and targets.</p>
+    ${progList()}
+    <button class="btn quiet wide" id="addProg" style="margin-top:12px">Add a program</button>
+    <div id="pastePanel" class="hide" style="margin-top:10px">
+      <textarea id="progJson" class="paste" placeholder="Paste the program JSON here" aria-label="Program JSON"></textarea>
+      <button class="btn wide" id="doImport" style="margin-top:8px">Check and add</button>
+      <div id="progMsg"></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Phase</h2>
     <p class="sub" style="margin:6px 0 12px">Currently Phase ${curPhase()}. Move down anytime if the work stops feeling controlled.</p>
     <div class="feels">
@@ -1701,6 +1865,73 @@ function renderSettings(){
   </div>`;
 
   view$().querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{ S.theme=b.dataset.th; save(); render(); });
+  view$().querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>switchProgram(b.dataset.use));
+  view$().querySelectorAll("[data-exp]").forEach(b=>b.onclick=()=>{
+    const id = b.dataset.exp, json = programJSON(id);
+    if(!json) return;
+    downloadText(id+"-v"+(S.programs[id].def.version||"1")+".json", json);
+    copyText(json, "Program copied, and saved as a file. Either one can be handed to whoever is building the next version.");
+  });
+  view$().querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{
+    const id = b.dataset.rm, nm = S.programs[id].def.name||id;
+    const n = S.sessions.filter(s=>s.programId===id).length;
+    if(!confirm(`Remove "${nm}"? Its phase and targets go with it.${n?` The ${n} session${n===1?"":"s"} you logged on it stay in your history.`:""}`)) return;
+    delete S.programs[id];
+    save(); renderSettings();
+  });
+
+  const addBtn = document.getElementById("addProg");
+  const panel = document.getElementById("pastePanel");
+  addBtn.onclick=()=>{
+    panel.classList.toggle("hide");
+    addBtn.textContent = panel.classList.contains("hide") ? "Add a program" : "Cancel";
+    if(!panel.classList.contains("hide")) document.getElementById("progJson").focus();
+  };
+  document.getElementById("doImport").onclick=()=>{
+    const box = document.getElementById("progJson");
+    const msg = document.getElementById("progMsg");
+    const raw = box.value.trim();
+    const fail = list => { msg.innerHTML = `<ul class="errs">${list.map(e=>`<li>${esc(e)}</li>`).join("")}</ul>`; };
+    if(!raw){ fail(["Nothing pasted yet."]); return; }
+
+    let def;
+    try{ def = JSON.parse(raw); }
+    catch(e){ fail(["That isn't valid JSON — it may have been cut off in copying. ("+e.message+")"]); return; }
+
+    const check = validateProgram(def);
+    if(!check.ok){ fail(check.errors); return; }
+
+    const existing = S.programs[def.id];
+    if(existing){
+      const from = existing.def.version, to = def.version;
+      if(from === to && !confirm(`"${def.name}" v${to} is already installed. Re-import it? Your targets and phase are kept.`)) return;
+      if(from !== to && !confirm(`Update "${def.name}" from v${from} to v${to}? Your targets and place in the program carry over.`)) return;
+    }
+
+    const res = installProgram(def);
+    if(!res.ok){ fail(res.errors); return; }
+
+    if(!existing && confirm(`Added "${res.name}". Switch to it now?`)) S.activeProgram = def.id;
+    if(S.activeProgram === def.id){ refreshProgram(); showDisclaimerFor(def.id); }
+
+    const lines = [];
+    if(res.mode==="revision"){
+      lines.push(`Updated to v${res.toVersion} from v${res.fromVersion}.`);
+      if(res.note) lines.push(res.note);
+      lines.push(`${res.carried} target${res.carried===1?"":"s"} carried over.`);
+      if(res.reset.length) lines.push(`Reset to starting value: ${res.reset.join(", ")}.`);
+      if(res.dropped.length) lines.push(`No longer in the program (history kept): ${res.dropped.join(", ")}.`);
+    }else{
+      lines.push(`Added "${res.name}".`);
+    }
+    (res.warnings||[]).forEach(w=>lines.push("Worth knowing: "+w));
+
+    awardBadges(); save();
+    box.value = "";
+    render();
+    alert(lines.join("\n\n"));
+  };
+
   view$().querySelectorAll("[data-goal]").forEach(b=>b.onclick=()=>{ S.weeklyGoalOverride=+b.dataset.goal; save(); renderSettings(); });
   view$().querySelectorAll("[data-ph]").forEach(b=>b.onclick=()=>{ setPhase(+b.dataset.ph); awardBadges(); save(); render(); });
 
