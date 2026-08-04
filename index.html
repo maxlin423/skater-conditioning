@@ -2253,8 +2253,11 @@ function renderSettings(){
       value="${esc(S.profile.name||"")}" aria-label="Skater name">
     <div class="lbl" style="margin-top:14px">Date of birth</div>
     <p class="sub" style="margin:4px 0 8px">Only used so a program can match the work to your age. Stays on this device.</p>
-    <input id="pdob" class="field" type="date" max="${new Date().toISOString().slice(0,10)}"
-      value="${esc(S.profile.dob||"")}" aria-label="Date of birth">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="pdob" class="field" type="date" max="${new Date().toISOString().slice(0,10)}"
+        value="${esc(S.profile.dob||"")}" aria-label="Date of birth" style="flex:1;min-width:0">
+      <button class="btn ghost sm" id="dobClear" ${S.profile.dob?"":"hidden"}>Clear</button>
+    </div>
     <p class="sub" id="agel" style="margin:8px 0 0" ${ageYears()==null?"hidden":""}>${ageYears()!=null?ageYears()+" years old.":""}</p>
     <button class="btn quiet wide" id="saveName" style="margin-top:10px">Save</button>
   </div>
@@ -2508,12 +2511,21 @@ function renderSettings(){
       al.textContent = a!=null ? a+" years old." : "";
       al.hidden = a==null;
     }
+    const cb=document.getElementById("dobClear");
+    if(cb) cb.hidden = !dobEl.value;
   };
   /* Both events: browsers disagree about which one a date picker's own buttons
      fire, and Safari can defer change until blur. Applying twice is harmless —
      it just re-reads the field. */
   dobEl.onchange = applyDob;
   dobEl.oninput  = applyDob;
+
+  /* Our own Clear, because the pickers don't agree on what their buttons mean:
+     Chrome offers "Clear" and empties the field, while Safari offers "Reset",
+     which reverts to the value the input already had and so appears to do
+     nothing. This behaves the same everywhere. */
+  const clearBtn=document.getElementById("dobClear");
+  if(clearBtn) clearBtn.onclick=()=>{ dobEl.value=""; applyDob(); };
   document.getElementById("wipe").onclick=()=>{
     if(!confirm("Erase all sessions and progress on this device?")) return;
     if(!confirm("Last check — this can't be undone.")) return;
