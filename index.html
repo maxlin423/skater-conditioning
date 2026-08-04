@@ -1178,13 +1178,27 @@ function checklistState(){ return PS().checklist; }
 function weeklyGoal(){ return S.weeklyGoalOverride || P.weeklyGoal || 3; }
 
 /* ============ AGE AND BODY METRICS ============ */
+/* Nobody doing off-ice strength work is under three. Anything younger is a
+   mistyped year or a stray tap on Safari's date-picker Reset, which sets the
+   field to today — and an age of 0 would otherwise match a program's age band
+   and quietly rescale her prescribed volume. */
+const MIN_PLAUSIBLE_AGE = 3;
+
 function ageYears(){
   const dob = S.profile && S.profile.dob;
   if(!dob) return null;
   const d = new Date(dob);
   if(isNaN(d.getTime())) return null;
   const y = (Date.now() - d.getTime()) / (365.2425*86400000);
-  return (y > 0 && y < 100) ? Math.round(y*10)/10 : null;
+  return (y >= MIN_PLAUSIBLE_AGE && y < 100) ? Math.round(y*10)/10 : null;
+}
+/* What sits under the date field: the age, a nudge if the date can't be right,
+   or nothing at all when none is set. */
+function dobHint(){
+  const a = ageYears();
+  if(a != null) return a + " years old.";
+  if(S.profile && S.profile.dob) return "That date doesn't look right — check the year?";
+  return "";
 }
 function metricLog(id){ return (S.metrics && S.metrics[id]) || []; }
 function latestMetric(id){
@@ -2258,7 +2272,7 @@ function renderSettings(){
         value="${esc(S.profile.dob||"")}" aria-label="Date of birth" style="flex:1;min-width:0">
       <button class="btn ghost sm" id="dobClear" ${S.profile.dob?"":"hidden"}>Clear</button>
     </div>
-    <p class="sub" id="agel" style="margin:8px 0 0" ${ageYears()==null?"hidden":""}>${ageYears()!=null?ageYears()+" years old.":""}</p>
+    <p class="sub" id="agel" style="margin:8px 0 0" ${dobHint()?"":"hidden"}>${esc(dobHint())}</p>
     <button class="btn quiet wide" id="saveName" style="margin-top:10px">Save</button>
   </div>
 
@@ -2506,11 +2520,8 @@ function renderSettings(){
   const applyDob=()=>{
     S.profile.dob = dobEl.value || null;
     save();
-    const al=document.getElementById("agel"), a=ageYears();
-    if(al){
-      al.textContent = a!=null ? a+" years old." : "";
-      al.hidden = a==null;
-    }
+    const al=document.getElementById("agel"), hint=dobHint();
+    if(al){ al.textContent = hint; al.hidden = !hint; }
     const cb=document.getElementById("dobClear");
     if(cb) cb.hidden = !dobEl.value;
   };
