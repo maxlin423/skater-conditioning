@@ -22,6 +22,12 @@
   --bg:#FBF2FF; --surface:#FFFFFF; --surface2:#F3E6FF; --line:#E7D6F7;
   --ink:#33224A; --muted:#7C6A96; --accent:#B15CE8; --accent-ink:#FFFFFF; --edge:#56C9E8;
 }
+[data-theme="slate"]{
+  --bg:#0D1116; --surface:#171D24; --surface2:#212932; --line:#2E3945;
+  --ink:#E8F1F8; --muted:#8A9BAA; --accent:#7DD3FC; --accent-ink:#06283A; --edge:#FFC46B;
+}
+/* Retired from the picker, kept so any device still set to it renders correctly
+   — and so it can be brought back by adding one entry to THEMES. */
 [data-theme="emerald"]{
   --bg:#071614; --surface:#0F2724; --surface2:#16332F; --line:#22453F;
   --ink:#E6FFF8; --muted:#83B3A8; --accent:#F5D36B; --accent-ink:#1E1800; --edge:#3FD9A0;
@@ -403,7 +409,10 @@ const BADGES = [
   {id:"mup",ic:"⇧",nm:"Jumped higher",test:()=>S.jumps.length>=2 && Math.max(...S.jumps.map(j=>j.cm)) > S.jumps[0].cm}
 ];
 
-const THEMES=[["midnight","Midnight Rink"],["sunrise","Sunrise Session"],["cotton","Cotton Candy"],["emerald","Emerald Edge"]];
+/* The picker shows exactly these four. A theme can be retired by removing it
+   here while leaving its CSS in place; saved settings pointing at it keep
+   working, it just can't be chosen again. */
+const THEMES=[["midnight","Midnight Rink"],["sunrise","Sunrise Session"],["cotton","Cotton Candy"],["slate","Slate Ice"]];
 
 /* ============ GREETINGS ============ */
 /* {n} is replaced with the skater's name, or dropped cleanly if there isn't one. */
