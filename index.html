@@ -2246,7 +2246,7 @@ function renderSettings(){
     <p class="sub" style="margin:4px 0 8px">Only used so a program can match the work to your age. Stays on this device.</p>
     <input id="pdob" class="field" type="date" max="${new Date().toISOString().slice(0,10)}"
       value="${esc(S.profile.dob||"")}" aria-label="Date of birth">
-    ${ageYears()!=null?`<p class="sub" style="margin:8px 0 0">${ageYears()} years old.</p>`:""}
+    <p class="sub" id="agel" style="margin:8px 0 0" ${ageYears()==null?"hidden":""}>${ageYears()!=null?ageYears()+" years old.":""}</p>
     <button class="btn quiet wide" id="saveName" style="margin-top:10px">Save</button>
   </div>
 
@@ -2485,6 +2485,26 @@ function renderSettings(){
   };
   document.getElementById("saveName").onclick=saveName;
   pn.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); saveName(); } };
+
+  /* A date picker commits on its own — picking a date, or clearing it with the
+     picker's own reset, has to take effect there and then. Waiting for the Save
+     button made those controls look broken. Updates the age line in place
+     rather than re-rendering, so the picker isn't yanked out from under itself. */
+  const dobEl=document.getElementById("pdob");
+  const applyDob=()=>{
+    S.profile.dob = dobEl.value || null;
+    save();
+    const al=document.getElementById("agel"), a=ageYears();
+    if(al){
+      al.textContent = a!=null ? a+" years old." : "";
+      al.hidden = a==null;
+    }
+  };
+  /* Both events: browsers disagree about which one a date picker's own buttons
+     fire, and Safari can defer change until blur. Applying twice is harmless —
+     it just re-reads the field. */
+  dobEl.onchange = applyDob;
+  dobEl.oninput  = applyDob;
   document.getElementById("wipe").onclick=()=>{
     if(!confirm("Erase all sessions and progress on this device?")) return;
     if(!confirm("Last check — this can't be undone.")) return;
